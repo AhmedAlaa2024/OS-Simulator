@@ -52,7 +52,7 @@ void pq_push(PriorityQueue *pq, T data, int priority) {
     else {
         printf("DEBUG: Case 3 - the inserted node's priority number is greater than the head\n");
         /* Traverse until you find the suitable position (low-priority number means high priority) */
-        while ((walker->next != NULL) && (walker->next->priority > priority))
+        while ((walker->next != NULL) && (walker->next->priority < priority))
             walker = walker->next;
 
         /* Found the suitable position */
