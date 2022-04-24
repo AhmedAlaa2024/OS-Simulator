@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#indlude "header.h"
 /* Only you can change the int datatype to your specific datatype */
-#define T int
+typedef T struct process*
 #define NULL ((void *)0)
 
 #define true    1
