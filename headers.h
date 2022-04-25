@@ -23,25 +23,48 @@ typedef short bool;
 int * shmaddr;                 //
 //===============================
 
+enum State{
+    running,
+    waiting
+};
+
+//process control block
+typedef struct PCB{
+    int id;
+    int waitingTime;
+    int remainingTime;
+    int executionTime;
+    int priority;
+    int cumulativeRunningTime;
+    int waiting_start_time;
+    int running_start_time;
+    int arrivalTime;
+    //int stoppingTime;
+    //int rerunningTime;
+    enum State state
+
+}PCB;
+
 typedef struct Process{
-    int state; //running 0 , waiting 1
-    int executiontime;
-    int remainingtime;
-    int waitingtime;
-    int arrivaltime;
-    int Priority; //(0 -> 10)
+    //int state; //running 0 , waiting 1
+    int executionTime;
+    int remainingTime;
+    int waitingTime;
+    int arrivalTime;
+    int priority; //(0 -> 10)
     int waiting_start_time;
     int running_start_time;
     int id;
+    enum State state;
 } process;
 
 struct process* Process_Constructor(int id, int arrivaltime, int executiontime,int priority)
 {
     process* p = (process*) malloc(sizeof(process));
     p->id = id;
-    p->arrivaltime = arrivaltime;
-    p->executiontime = executiontime;
-    p->Priority = priority;
+    p->arrivalTime = arrivaltime;
+    p->executionTime = executiontime;
+    p->priority = priority;
     return p;
   
 }

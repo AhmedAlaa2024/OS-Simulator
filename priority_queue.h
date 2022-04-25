@@ -24,6 +24,16 @@ typedef struct node {
 typedef struct {
     Node *Head;
     int num_of_nodes;
+    //int state; //running 0 , waiting 1
+    int executiontime;
+    int remainingtime;
+    int waitingtime;
+    int arrivaltime;
+    int Priority; //(0 -> 10)
+    int waiting_start_time;
+    int running_start_time;
+    int id;
+    enum State state;
 } PriorityQueue;
 
 /* Create a new node, if there is no next, you can pass NULL */
