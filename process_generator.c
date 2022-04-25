@@ -1,4 +1,5 @@
 #include "headers.h"
+#include "priority_queue.h"
 #include <string.h>
 #define LINE_SIZE 300
 
@@ -14,6 +15,8 @@ int main(int argc, char * argv[])
     FILE * pFile;
     char* line = malloc(LINE_SIZE);
     int parameter;
+    struct Process* const_p; 
+    struct PriorityQueue* processQ;
 
     pFile = fopen("processes.txt", "r");
     while(fgets(line, LINE_SIZE, pFile) != NULL){
@@ -25,6 +28,8 @@ int main(int argc, char * argv[])
         for (i = 0; i < 4; i++)
             printf("%d\t", process[i]);
         printf("\n");
+        const_p = Process_Constructor(process[0], process[1], process[2],process[3]);
+        pq_push(&processQ, const_p, const_p->arrivalTime);
     }
 
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
