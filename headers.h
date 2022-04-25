@@ -17,7 +17,13 @@ typedef short bool;
 
 #define SHKEY 300
 
-typedef struct {
+
+///==============================
+//don't mess with this variable//
+int * shmaddr;                 //
+//===============================
+
+typedef struct Process{
     int state; //running 0 , waiting 1
     int executiontime;
     int remainingtime;
@@ -27,24 +33,18 @@ typedef struct {
     int waiting_start_time;
     int running_start_time;
     int id;
-} process
+} process;
 
 struct process* Process_Constructor(int id, int arrivaltime, int executiontime,int priority)
 {
-    struct process* p=malloc (sizeof(struct process));
-    p->id=id;
-    p->arrivaltime=arrivaltime;
-    p->executiontime=executiontime;
-    p->priority=priority;
+    process* p = (process*) malloc(sizeof(process));
+    p->id = id;
+    p->arrivaltime = arrivaltime;
+    p->executiontime = executiontime;
+    p->Priority = priority;
     return p;
   
 }
-///==============================
-//don't mess with this variable//
-int * shmaddr;                 //
-//===============================
-
-
 
 int getClk()
 {

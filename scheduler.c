@@ -1,11 +1,9 @@
 #include "headers.h"
+#include "priority_queue.h"
 
 
-int main(int argc, char * argv[])
-{
-    initClk();
-    
-    //TODO implement the scheduler :)
+process* Process_Table;
+
 
     void Context_Switching_To_Run(int Entry_Number)
     {
@@ -25,6 +23,12 @@ int main(int argc, char * argv[])
     }
 
 
+
+int main(int argc, char * argv[])
+{
+    initClk();
+    
+    //TODO implement the scheduler :)
     //upon termination release the clock resources.
     
     destroyClk(true);

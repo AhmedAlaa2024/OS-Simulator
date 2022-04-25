@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#indlude "header.h"
+#include "headers.h"
 /* Only you can change the int datatype to your specific datatype */
-typedef T struct process*
+#define T struct process*  // it was typedef T struct process* and it gives an error --> why typedef ? --> doaa
 #define NULL ((void *)0)
 
 #define true    1
