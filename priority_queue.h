@@ -12,8 +12,6 @@ typedef Process* T;  // it was typedef T struct process* and it gives an error -
 #define false   0
 #define bool    char
 
-#define ADDRESS(element) (&(element))
-
 /* This is the node definition */
 typedef struct node {
     T data;

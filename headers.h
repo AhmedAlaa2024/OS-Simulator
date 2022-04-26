@@ -15,10 +15,7 @@
 #include <signal.h>
 
 #define DEBUGGING   1
-
-//don't mess with this variable//
-extern int * shmaddr;                 //
-//===============================
+#define ADDRESS(element) (&(element))
 
 typedef short bool;
 #define true 1
@@ -44,6 +41,11 @@ typedef struct {
     int arrivalTime;
     State state;
 } Process;
+
+typedef struct {
+ long mtype; /* type of message */
+ Process mprocess; /* The process as a message */
+} MsgBuf;
 
 Process* Process_Constructor(int id, int arrivaltime, int executiontime,int priority);
 int getClk();

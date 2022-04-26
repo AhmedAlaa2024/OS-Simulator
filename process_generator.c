@@ -7,6 +7,12 @@ void clearResources(int);
 
 int main(int argc, char * argv[])
 {
+    /* Create a message buffer between process_generator and scheduler */
+    key_t key = ftok("key.txt" ,66);
+    int msg_id =msgget( key, (IPC_CREAT | 0660) );
+
+    MsgBuf msgbuf;
+
     #if(DEBUGGING == 1)
     printf("DEBUGGING: Here!");
     #endif
@@ -48,13 +54,35 @@ int main(int argc, char * argv[])
 
     // 6. Send the information to the scheduler at the appropriate time.
     
-    /*while(!processQ.isEmpty())
+    while(!pq_isEmpty(&processQ))
     {
-        if(processQ.peek().arrival==getclk())
-        {
-            //send it to scheduler
+        #if(DEBUGGING == 1)
+        printf("Clock Now: %d\n", getClk());
+        int pid = pq_peek(&processQ)->id;
+        int arrivalTime = pq_peek(&processQ)->arrivalTime;
+        printf("DEBUGGING: { \ntime: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), pid, arrivalTime);
+        #endif
+
+        if(pq_peek(&processQ)->arrivalTime == getClk()) {
+            // Send to scheduler
+            msgbuf.mtype = 0;
+            Process *ptr = pq_pop(&processQ);
+
+            Process process;
+            process.id = ptr->id;
+            process.waitingTime = ptr->waitingTime;
+            process.remainingTime = ptr->remainingTime;
+            process.executionTime = ptr->executionTime;
+            process.priority = ptr->priority;
+            process.cumulativeRunningTime = ptr->cumulativeRunningTime;
+            process.waiting_start_time = ptr->waitingTime;
+            process.running_start_time = ptr->running_start_time;
+            process.arrivalTime = ptr->arrivalTime;
+
+            msgbuf.mprocess = process;
+            int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf.mprocess), !(IPC_NOWAIT));
         }
-    }*/
+    }
     
     // 7. Clear clock resources
     destroyClk(true);

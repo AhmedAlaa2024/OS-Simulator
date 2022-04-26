@@ -13,6 +13,12 @@ void RR(int quantum);
    ---------
    4. Need to fork process (Uncle) to trace the clocks and interrupt the scheduler (Parent) to do the callback
    5. We need the context switching to change the state, kill, print.
+   ----------------------------------------------------------------------------------
+   Note:
+   1. We need to make the receiving operation with notification with no blocking.
+   2. Set a handler upon the termination.
+   ----------------------------------------------------------------------------------
+   ERROR: Clock Mismatch!!
 */
 
 void updateInformation(void) {
@@ -111,7 +117,18 @@ void checkProcessArrival()
 int main(int argc, char * argv[])
 {
     initClk();
-    
+
+    /* Create a message buffer between process_generator and scheduler */
+    key_t key = ftok("key.txt" ,66);
+    int msg_id =msgget( key, (IPC_CREAT | 0660) );
+    MsgBuf msgbuf;
+    #if(DEBUGGING == 1)
+    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(Process), 0, !(IPC_NOWAIT));
+    printf("DEBUGGING: { \nProcess ID: %d\n, nProcessArrival Time: %d\n}\n", msgbuf.mprocess.id, msgbuf.mprocess.arrivalTime);
+
+    // WARNING: Don't forget to elminate the next file
+    return 0;
+    #endif
 
     logFile = fopen("Scheduler.log", "w");
     fprintf(logFile, "#At  time  x  process  y  state  arr  w  total  z  remain  y  wait  k\n");//should we ingnore this line ?

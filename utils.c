@@ -26,13 +26,14 @@ int getClk()
 */
 void initClk()
 {
-    int shmid = shmget(0, 4, 0644 | IPC_CREAT);
+    key_t key = ftok("key.txt" ,67);
+    int shmid = shmget(key, 4, 0644 | IPC_CREAT);
     while (shmid == -1)
     {
         //Make sure that the clock exists
         printf("Wait! The clock not initialized yet!\n");
         sleep(1);
-        shmid = shmget(0, 4, 0644 | IPC_CREAT);
+        shmid = shmget(key, 4, 0644 | IPC_CREAT);
     }
     shmaddr = (int *) shmat(shmid, (void *)0, 0);
 }

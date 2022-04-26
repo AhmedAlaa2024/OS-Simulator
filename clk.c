@@ -25,7 +25,8 @@ int main(int argc, char * argv[])
     // signal(SIGINT, cleanup);
     int clk = 0;
     //Create shared memory for one integer variable 4 bytes
-    shmid = shmget(SHKEY, 4, IPC_CREAT | 0644);
+    key_t key = ftok("key.txt" ,67);
+    shmid = shmget(key, 4, IPC_CREAT | 0644);
     if ((long)shmid == -1)
     {
         perror("Error in creating shm!");
@@ -39,7 +40,9 @@ int main(int argc, char * argv[])
     }
     *shmaddr = clk; /* initialize shared memory */
     while (1)
-    {
+    {  
+        printf("\nTime Now: %d", *shmaddr);
+        fflush(0);
         sleep(1);
         (*shmaddr)++;
     }
