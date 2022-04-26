@@ -168,6 +168,36 @@ void RR(int quantum)
 }
 
 
+/* Warning: Under development */
+void HPF(void) {
+    int pid;
+    int timeToStop;
+
+    for(;;) // Super Loop
+    {
+        while(!pq_isEmpty(&readyQ)) {
+            checkProcessArrival();
+
+            process* p = pq_pop(&readyQ);
+
+            //meaning that it is the first time to be fun on the cpu
+            pid = fork();
+            if(pid == -1)
+            {
+                perror("Error in the process fork!\n");
+                exit(0);
+            }
+            //put it in the PCB
+            Process_Table[p->id].id = pid;
+            timeToStop = getClk() + Process_Table[p->id].executionTime;
+
+            Context_Switching_To_Run(p->id);
+            /* Not Finished Yet */
+        }
+    }
+}
+
+
 void handler_notify_scheduler_I_terminated(int signum)
 {
     //TODO
