@@ -3,16 +3,30 @@
 
 FILE* logFile, *perfFile;
 PriorityQueue readyQ;
-PCB* Process_Table;
+Process* Process_Table;
 void RR(int quantum);
+
+/* Systick callback the scheduler.updateInformation()
+   1. Increase cummualtive running time for the running process
+   2. Increase waiting time for the waited process
+   3. Decrease the remaining time
+   ---------
+   4. Need to fork process (Uncle) to trace the clocks and interrupt the scheduler (Parent) to do the callback
+   5. We need the context switching to change the state, kill, print.
+*/
+
+void updateInformation(void) {
+    int process;
+    
+}
 
 void Context_Switching_To_Run(int Entry_Number)
 {
     int Process_id = Process_Table[Entry_Number].id;
-    Process_Table[Entry_Number].state = running;
+    Process_Table[Entry_Number].state = RUNNING;
     Process_Table[Entry_Number].waitingTime += (getClk()-(Process_Table[Entry_Number].waiting_start_time));
     Process_Table[Entry_Number].running_start_time = getClk(); 
-    fprintf(logFile, "At  time  %f  process  %i  resumed  arr  %f  total  %f  remain  %f  wait  %f\n", 
+    fprintf(logFile, "At  time  %d  process  %i  resumed  arr  %d  total  %d  remain  %d  wait  %d\n", 
         Process_Table[Entry_Number].running_start_time,
         Entry_Number,
         Process_Table[Entry_Number].arrivalTime,
@@ -25,10 +39,10 @@ void Context_Switching_To_Run(int Entry_Number)
 void Context_Switching_To_Wait(int Entry_Number)
 {
     int Process_id = Process_Table[Entry_Number].id;
-    Process_Table[Entry_Number].state = waiting;
+    Process_Table[Entry_Number].state = WAITING;
     Process_Table[Entry_Number].remainingTime-=(getClk()-(Process_Table[Entry_Number].running_start_time));
     Process_Table[Entry_Number].waiting_start_time=getClk();
-    fprintf(logFile, "At  time  %f  process  %i  stopped  arr  %f  total  %f  remain  %f  wait  %f\n", 
+    fprintf(logFile, "At  time  %d  process  %i  stopped  arr  %d  total  %d  remain  %d  wait  %d\n", 
         Process_Table[Entry_Number].running_start_time,
         Entry_Number,
         Process_Table[Entry_Number].arrivalTime,
@@ -48,14 +62,14 @@ void Context_Switching_To_Start(int Entry_Number)
         perror("error in fork\n");
         exit(0);
     }
-    //put it in the PCB
+    //put it in the Process
     Process_Table[Entry_Number].id = pid;
     int Process_id = Process_Table[Entry_Number].id;
-    Process_Table[Entry_Number].state = running;
+    Process_Table[Entry_Number].state = RUNNING;
     Process_Table[Entry_Number].waitingTime +=(getClk()-(Process_Table[Entry_Number].waiting_start_time));
     Process_Table[Entry_Number].running_start_time=getClk();
 
-    fprintf(logFile, "At  time  %f  process  %i  started  arr  %f  total  %f  remain  %f  wait  %f\n", 
+    fprintf(logFile, "At  time  %d  process  %i  started  arr  %d  total  %d  remain  %d  wait  %d\n", 
         Process_Table[Entry_Number].running_start_time,
         Entry_Number,
         Process_Table[Entry_Number].arrivalTime,
@@ -63,7 +77,6 @@ void Context_Switching_To_Start(int Entry_Number)
         Process_Table[Entry_Number].remainingTime,
         Process_Table[Entry_Number].waitingTime 
     );
-    kill(Process_id,SIGCONT); //continue the stopped process
 }
 
 
@@ -73,7 +86,7 @@ void Terminate_Process(int Entry_Number)
     int clk = getClk();
     kill(Process_id,SIGKILL);
 
-    fprintf(logFile, "At  time  %f  process  %i  finished  arr  %f  total  %f  remain  %f  wait  %f  TA  %f  WTA  %f\n", 
+    fprintf(logFile, "At  time  %d  process  %i  finished  arr  %d  total  %d  remain  %d  wait  %d  TA  %d  WTA  %d\n", 
         clk,         //to make sure
         Entry_Number,
         Process_Table[Entry_Number].arrivalTime,
@@ -89,7 +102,7 @@ void checkProcessArrival()
     //to implement --> IPC
     //hint --> we have to give this comming process an id = num_of_nodes in the readyQ
     //the id in the readyQ will be from 0 --> total_num_of_processes - 1
-    //which differ from the id in the PCB --> which will be the id returned from forking
+    //which differ from the id in the Process --> which will be the id returned from forking
 
     //Process_Table[Entry_Number].arrivalTime,
 }
@@ -100,7 +113,7 @@ int main(int argc, char * argv[])
     initClk();
     
 
-    logFile = fopen("Scheduler.log", 'w');
+    logFile = fopen("Scheduler.log", "w");
     fprintf(logFile, "#At  time  x  process  y  state  arr  w  total  z  remain  y  wait  k\n");//should we ingnore this line ?
     //TODO implement the scheduler :)
     //upon termination release the clock resources.
@@ -122,7 +135,7 @@ void RR(int quantum)
         {
             checkProcessArrival();
 
-            process* p = pq_pop(&readyQ);
+            Process* p = pq_pop(&readyQ);
             
             if(p->executionTime == p->remainingTime)
             {
@@ -133,7 +146,7 @@ void RR(int quantum)
                     perror("error in fork\n");
                     exit(0);
                 }
-                //put it in the PCB
+                //put it in the Process
                 Process_Table[p->id].id = pid;
                 
                 
@@ -149,7 +162,7 @@ void RR(int quantum)
             {
                 timeToStop = clk + Process_Table[p->id].remainingTime;
                 //then run it to completion then remove from the system ---> but the schedular doesn't terminate a process --> what should i do ?
-                while(getclk() != timeToStop);
+                while(getClk() != timeToStop);
 
                 //terminate the process
 
@@ -178,7 +191,7 @@ void HPF(void) {
         while(!pq_isEmpty(&readyQ)) {
             checkProcessArrival();
 
-            process* p = pq_pop(&readyQ);
+            Process* p = pq_pop(&readyQ);
 
             //meaning that it is the first time to be fun on the cpu
             pid = fork();
@@ -187,7 +200,7 @@ void HPF(void) {
                 perror("Error in the process fork!\n");
                 exit(0);
             }
-            //put it in the PCB
+            //put it in the Process
             Process_Table[p->id].id = pid;
             timeToStop = getClk() + Process_Table[p->id].executionTime;
 

@@ -69,17 +69,17 @@ bool pq_isEmpty(PriorityQueue* pq) {
 }
 
 /* Print the priority queue in order to trace its elements */
-void pq_print(PriorityQueue* pq) {
-    Node *temp = pq->Head;
+// void pq_print(PriorityQueue* pq) {
+//     Node *temp = pq->Head;
 
-    if (pq_isEmpty(pq))
-        printf("Priority Queue is empty!");
+//     if (pq_isEmpty(pq))
+//         printf("Priority Queue is empty!");
 
-    while (temp != NULL) {
-        printf("Node { ");
-        printf("Data: %d,\n", temp->data);
-        printf("key: %d,\n", temp->key);
-        printf("priority: %d\n}\n\n", temp->priority);
-        temp = temp->next;
-    }
-}
+//     while (temp != NULL) {
+//         printf("Node { ");
+//         printf("Data: %d,\n", temp->data);
+//         printf("key: %d,\n", temp->key);
+//         printf("priority: %d\n}\n\n", temp->priority);
+//         temp = temp->next;
+//     }
+// }

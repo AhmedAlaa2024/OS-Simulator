@@ -7,7 +7,11 @@ void clearResources(int);
 
 int main(int argc, char * argv[])
 {
-    signal(SIGINT, clearResources);
+    #if(DEBUGGING == 1)
+    printf("DEBUGGING: Here!");
+    #endif
+    // WARNING: Don't forget to uncomment the next line
+    // signal(SIGINT, clearResources);
     // TODO Initialization
     // 1. Read the input files.
     int process[4];
@@ -15,8 +19,8 @@ int main(int argc, char * argv[])
     FILE * pFile;
     char* line = malloc(LINE_SIZE);
     int parameter;
-    struct Process* const_p; 
-    struct PriorityQueue* processQ;
+    Process* const_p; 
+    PriorityQueue processQ;
 
     pFile = fopen("processes.txt", "r");
     while(fgets(line, LINE_SIZE, pFile) != NULL){

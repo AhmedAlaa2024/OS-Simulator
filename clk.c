@@ -21,7 +21,8 @@ void cleanup(int signum)
 int main(int argc, char * argv[])
 {
     printf("Clock starting\n");
-    signal(SIGINT, cleanup);
+    // WARNING: Don't forget to uncomment the next line
+    // signal(SIGINT, cleanup);
     int clk = 0;
     //Create shared memory for one integer variable 4 bytes
     shmid = shmget(SHKEY, 4, IPC_CREAT | 0644);
