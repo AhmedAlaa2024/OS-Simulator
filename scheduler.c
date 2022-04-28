@@ -186,7 +186,7 @@ void RR(int quantum)
             if(p->executionTime == p->remainingTime)
             {
                 //meaning that it is the first time to be fun on the cpu
-                pid = fork();
+                pid = execl(".", "./process.out", (char*) NULL); //rufaida-> not sure
                 if(pid == -1)
                 {
                     perror("error in fork\n");
@@ -240,7 +240,7 @@ void HPF(void)
             Process* p = pq_pop(&readyQ);
 
             //meaning that it is the first time to be fun on the cpu
-            pid = fork();
+            pid = execl(".", "./process.out", (char*) NULL); //rufaida-> not sure
             if(pid == -1)
             {
                 perror("Error in the process fork!\n");
@@ -258,6 +258,42 @@ void HPF(void)
 
 void SRTN(void)
 {
+    int clk = -1;
+    int peek;
+    int pid;
+    Process* current = NULL;
+    do
+    {
+        if(getClk() != clk)
+        {
+            clk = getClk();
+
+            //check if arrived.
+            if(pq_isEmpty(&readyQ))continue;
+            if(current != NULL)
+            {
+                peek = pq_peek(&readyQ)->remainingTime;
+                if(peek >= current->remainingTime) continue;
+
+            //switch:
+                Context_Switching_To_Wait(current->id);
+            }
+            current = pq_pop(&readyQ);
+
+            pid = execl(".", "./process.out", (char*) NULL); //rufaida-> not sure
+            if(pid == -1)
+            {
+                perror("Error in the process fork!\n");
+                exit(0);
+            }
+            //put it in the Process
+            Process_Table[current->id].id = pid;
+
+            Context_Switching_To_Start(current->id);
+
+        }
+        //when terminates --> set current to NULL.
+    } while (1);
 
 }
 
@@ -334,7 +370,7 @@ void Context_Switching_To_Start(int Entry_Number)
         Process_Table[Entry_Number].waitingTime 
     );
 }
-
+//rufaida-> why terminate???
 void Terminate_Process(int Entry_Number)
 {
     int Process_id = Process_Table[Entry_Number].id;
