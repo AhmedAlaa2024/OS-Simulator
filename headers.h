@@ -44,7 +44,17 @@ typedef struct {
 
 typedef struct {
  long mtype; /* type of message */
- Process mprocess; /* The process as a message */
+ /* The process as a message */
+ int id;
+ int waitingTime;
+ int remainingTime;
+ int executionTime;
+ int priority; //(0 -> 10)
+ int cumulativeRunningTime;
+ int waiting_start_time; 
+ int running_start_time;
+ int arrivalTime;
+ State state;
 } MsgBuf;
 
 Process* Process_Constructor(int id, int arrivaltime, int executiontime,int priority);

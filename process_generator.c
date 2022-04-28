@@ -11,6 +11,12 @@ int main(int argc, char * argv[])
     key_t key = ftok("key.txt" ,66);
     int msg_id =msgget( key, (IPC_CREAT | 0660) );
 
+    if (msg_id == -1) {
+        perror("Error in create!");
+        exit(1);
+    }
+    printf("Message Queue ID = %d\n", msg_id);
+
     MsgBuf msgbuf;
 
     #if(DEBUGGING == 1)
@@ -64,22 +70,21 @@ int main(int argc, char * argv[])
 
         if(pq_peek(&processQ)->arrivalTime == getClk()) {
             // Send to scheduler
-            msgbuf.mtype = 0;
+            msgbuf.mtype = ;
             Process *ptr = pq_pop(&processQ);
 
-            Process process;
-            process.id = ptr->id;
-            process.waitingTime = ptr->waitingTime;
-            process.remainingTime = ptr->remainingTime;
-            process.executionTime = ptr->executionTime;
-            process.priority = ptr->priority;
-            process.cumulativeRunningTime = ptr->cumulativeRunningTime;
-            process.waiting_start_time = ptr->waitingTime;
-            process.running_start_time = ptr->running_start_time;
-            process.arrivalTime = ptr->arrivalTime;
+            msgbuf.id = ptr->id;
+            msgbuf.waitingTime = ptr->waitingTime;
+            msgbuf.remainingTime = ptr->remainingTime;
+            msgbuf.executionTime = ptr->executionTime;
+            msgbuf.priority = ptr->priority;
+            msgbuf.cumulativeRunningTime = ptr->cumulativeRunningTime;
+            msgbuf.waiting_start_time = ptr->waitingTime;
+            msgbuf.running_start_time = ptr->running_start_time;
+            msgbuf.arrivalTime = ptr->arrivalTime;
+            msgbuf.state = ptr->state;
 
-            msgbuf.mprocess = process;
-            int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf.mprocess), !(IPC_NOWAIT));
+            int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
         }
     }
     

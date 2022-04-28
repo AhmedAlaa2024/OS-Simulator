@@ -121,13 +121,21 @@ int main(int argc, char * argv[])
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
     int msg_id =msgget( key, (IPC_CREAT | 0660) );
+
+    if (msg_id == -1) {
+        perror("Error in create!");
+        exit(1);
+    }
+    printf("Message Queue ID = %d\n", msg_id);
+
     MsgBuf msgbuf;
+
     #if(DEBUGGING == 1)
     while(1) {
-        printf("Schedule: I am debugging!");
+        // printf("Schedule: I am debugging!");
         fflush(0);
-        int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(Process), 0, !(IPC_NOWAIT));
-        printf("DEBUGGING: { \nProcess ID: %d\n, nProcessArrival Time: %d\n}\n", msgbuf.mprocess.id, msgbuf.mprocess.arrivalTime);
+        int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, !(IPC_NOWAIT));
+        printf("DEBUGGING: { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
         fflush(0);
     }
     // WARNING: Don't forget to elminate the next file
