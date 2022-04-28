@@ -45,12 +45,10 @@ void pq_push(PriorityQueue *pq, T data, int priority) {
 
     /* Special Case: The new node has a greater priority than the head (low-priority number means high priority) */
     if (priority < walker->priority) {
-        printf("DEBUG: Case 1 - the inserted node's priority number is less than the head's priority\n");
         temp->next = walker;
         pq->Head = temp;
     }
     else {
-        printf("DEBUG: Case 3 - the inserted node's priority number is greater than the head\n");
         /* Traverse until you find the suitable position (low-priority number means high priority) */
         while ((walker->next != NULL) && (walker->next->priority < priority))
             walker = walker->next;
@@ -69,17 +67,17 @@ bool pq_isEmpty(PriorityQueue* pq) {
 }
 
 /* Print the priority queue in order to trace its elements */
-void pq_print(PriorityQueue* pq) {
-    Node *temp = pq->Head;
+// void pq_print(PriorityQueue* pq) {
+//     Node *temp = pq->Head;
 
-    if (pq_isEmpty(pq))
-        printf("Priority Queue is empty!");
+//     if (pq_isEmpty(pq))
+//         printf("Priority Queue is empty!");
 
-    while (temp != NULL) {
-        printf("Node { ");
-        printf("Data: %d,\n", temp->data);
-        printf("key: %d,\n", temp->key);
-        printf("priority: %d\n}\n\n", temp->priority);
-        temp = temp->next;
-    }
-}
+//     while (temp != NULL) {
+//         printf("Node { ");
+//         printf("Data: %d,\n", temp->data);
+//         printf("key: %d,\n", temp->key);
+//         printf("priority: %d\n}\n\n", temp->priority);
+//         temp = temp->next;
+//     }
+// }

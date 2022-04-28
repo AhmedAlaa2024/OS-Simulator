@@ -1,15 +1,16 @@
+#ifndef _PRIORITY_QUEUE_H
+#define _PRIORITY_QUEUE_H
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "headers.h"
 /* Only you can change the int datatype to your specific datatype */
-#define T struct process*  // it was typedef T struct process* and it gives an error --> why typedef ? --> doaa
+typedef Process* T;  // it was typedef T struct process* and it gives an error --> why typedef ? --> doaa
 #define NULL ((void *)0)
 
 #define true    1
 #define false   0
 #define bool    char
-
-#define ADDRESS(element) (&(element))
 
 /* This is the node definition */
 typedef struct node {
@@ -24,16 +25,7 @@ typedef struct node {
 typedef struct {
     Node *Head;
     int num_of_nodes;
-    //int state; //running 0 , waiting 1
-    int executiontime;
-    int remainingtime;
-    int waitingtime;
-    int arrivaltime;
     int Priority; //(0 -> 10)
-    int waiting_start_time;
-    int running_start_time;
-    int id;
-    enum State state;
 } PriorityQueue;
 
 /* Create a new node, if there is no next, you can pass NULL */
@@ -52,4 +44,5 @@ void pq_push(PriorityQueue *pq, T data, int priority);
 bool pq_isEmpty(PriorityQueue* pq);
 
 /* Print the priority queue in order to trace its elements */
-void pq_print(PriorityQueue* pq);
+// void pq_print(PriorityQueue* pq);
+#endif
