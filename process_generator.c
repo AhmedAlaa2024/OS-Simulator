@@ -8,7 +8,7 @@ void clearResources(int);
 int main(int argc, char * argv[])
 {
     #if (DEBUGGING == 1)
-    printf("Debugging mode is ON!\n");
+    printf("(Process_generator): Debugging mode is ON!\n");
     #endif
 
     /* Create a message buffer between process_generator and scheduler */
@@ -21,7 +21,7 @@ int main(int argc, char * argv[])
     }
 
     #if (NOTIFICATION == 1)
-    printf("Message Queue ID = %d\n", msg_id);
+    printf("Notification (Process_generator) : Message Queue ID = %d\n", msg_id);
     #endif
 
     MsgBuf msgbuf;

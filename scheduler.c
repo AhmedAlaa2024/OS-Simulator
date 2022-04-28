@@ -5,11 +5,12 @@ FILE* logFile, *perfFile;
 ALGORITHM algorithm;
 PriorityQueue readyQ;
 Process* Process_Table;
-void RR(int quantum);
+int current_process_id;
+int total_number_of_received_process;
 
 #if (WARNINGS == 1)
 #warning "Scheduler: Read the following notes carefully!"
-#warning "Systick callback the scheduler.updateInformation()
+#warning "Systick callback the scheduler.updateInformation()"
 #warning "1. Increase cummualtive running time for the running process"
 #warning "2. Increase waiting time for the waited process"
 #warning "3. Decrease the remaining time"
@@ -23,97 +24,21 @@ void RR(int quantum);
 #warning "-----------------------------------------------------------------------------------------------------------------"
 #endif
 
-void updateInformation(void) {
-    int process;
-}
+int parent(void);
+int child(void);
 
-void Context_Switching_To_Run(int Entry_Number)
-{
-    int Process_id = Process_Table[Entry_Number].id;
-    Process_Table[Entry_Number].state = RUNNING;
-    Process_Table[Entry_Number].waitingTime += (getClk()-(Process_Table[Entry_Number].waiting_start_time));
-    Process_Table[Entry_Number].running_start_time = getClk(); 
-    fprintf(logFile, "At  time  %d  process  %i  resumed  arr  %d  total  %d  remain  %d  wait  %d\n", 
-        Process_Table[Entry_Number].running_start_time,
-        Entry_Number,
-        Process_Table[Entry_Number].arrivalTime,
-        Process_Table[Entry_Number].executionTime,    //to make sure ?!
-        Process_Table[Entry_Number].remainingTime,
-        Process_Table[Entry_Number].waitingTime 
-    );
-    kill(Process_id,SIGCONT); //continue the stopped process
-}
-void Context_Switching_To_Wait(int Entry_Number)
-{
-    int Process_id = Process_Table[Entry_Number].id;
-    Process_Table[Entry_Number].state = WAITING;
-    Process_Table[Entry_Number].remainingTime-=(getClk()-(Process_Table[Entry_Number].running_start_time));
-    Process_Table[Entry_Number].waiting_start_time=getClk();
-    fprintf(logFile, "At  time  %d  process  %i  stopped  arr  %d  total  %d  remain  %d  wait  %d\n", 
-        Process_Table[Entry_Number].running_start_time,
-        Entry_Number,
-        Process_Table[Entry_Number].arrivalTime,
-        Process_Table[Entry_Number].executionTime,    //to make sure ?!
-        Process_Table[Entry_Number].remainingTime,
-        Process_Table[Entry_Number].waitingTime 
-    );
-    kill(Process_id,SIGSTOP); //stopping it to the waiting state
-}
+void RR(int quantum);
+void HPF(void);
+void SRTN(void);
 
+void updateInformation(void);
 
-void Context_Switching_To_Start(int Entry_Number)
-{
-    int pid = fork();
-    if(pid == -1)
-    {
-        perror("error in fork\n");
-        exit(0);
-    }
-    //put it in the Process
-    Process_Table[Entry_Number].id = pid;
-    int Process_id = Process_Table[Entry_Number].id;
-    Process_Table[Entry_Number].state = RUNNING;
-    Process_Table[Entry_Number].waitingTime +=(getClk()-(Process_Table[Entry_Number].waiting_start_time));
-    Process_Table[Entry_Number].running_start_time=getClk();
+void Context_Switching_To_Run(int Entry_Number);
+void Context_Switching_To_Wait(int Entry_Number);
+void Context_Switching_To_Start(int Entry_Number);
 
-    fprintf(logFile, "At  time  %d  process  %i  started  arr  %d  total  %d  remain  %d  wait  %d\n", 
-        Process_Table[Entry_Number].running_start_time,
-        Entry_Number,
-        Process_Table[Entry_Number].arrivalTime,
-        Process_Table[Entry_Number].executionTime,    //to make sure ?!
-        Process_Table[Entry_Number].remainingTime,
-        Process_Table[Entry_Number].waitingTime 
-    );
-}
-
-
-void Terminate_Process(int Entry_Number)
-{
-    int Process_id = Process_Table[Entry_Number].id;
-    int clk = getClk();
-    kill(Process_id,SIGKILL);
-
-    fprintf(logFile, "At  time  %d  process  %i  finished  arr  %d  total  %d  remain  %d  wait  %d  TA  %d  WTA  %d\n", 
-        clk,         //to make sure
-        Entry_Number,
-        Process_Table[Entry_Number].arrivalTime,
-        Process_Table[Entry_Number].executionTime,    //to make sure ?!
-        Process_Table[Entry_Number].remainingTime,
-        Process_Table[Entry_Number].waitingTime,
-        clk - Process_Table[Entry_Number].arrivalTime,
-        (clk - Process_Table[Entry_Number].arrivalTime) / Process_Table[Entry_Number].executionTime
-    );
-}
-void checkProcessArrival()
-{
-    //to implement --> IPC
-    //hint --> we have to give this comming process an id = num_of_nodes in the readyQ
-    //the id in the readyQ will be from 0 --> total_num_of_processes - 1
-    //which differ from the id in the Process --> which will be the id returned from forking
-
-    //Process_Table[Entry_Number].arrivalTime,
-}
-
+void Terminate_Process(int Entry_Number);
+void checkProcessArrival(void);
 
 int main(int argc, char * argv[])
 {
@@ -121,6 +46,27 @@ int main(int argc, char * argv[])
     printf("Debugging mode is ON!\n");
     #endif
 
+    int pid;
+
+    pid = fork();
+
+    if (pid == -1) /* I can't give birth for you! */
+    {
+        perror("Error in forking!");
+    }
+    else if (pid == 0) /* Hi, I am the child! */
+    {
+        child();
+    }
+    else /* Hi, I am the parent! */
+    {
+        parent();   
+    }
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+int parent(void)
+{
     initClk();
 
     /* Create a message buffer between process_generator and scheduler */
@@ -132,7 +78,7 @@ int main(int argc, char * argv[])
         exit(1);
     }
     #if (NOTIFICATION == 1)
-    printf("Message Queue ID = %d\n", msg_id);
+    printf("Notification (Scheduler): Message Queue ID = %d\n", msg_id);
     #endif
 
     MsgBuf msgbuf;
@@ -158,7 +104,7 @@ int main(int argc, char * argv[])
     {
         int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, !(IPC_NOWAIT));
         #if (NOTIFICATION == 1)
-        printf("Notification: { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
+        printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
         #endif
 
         process.id = msgbuf.id;
@@ -190,9 +136,10 @@ int main(int argc, char * argv[])
     #if (WARNINGS == 1)
     #warning "Scheduler: I think we should make the logging in periodic maner. I suggest to put it in updateInformation function which is calledback every clock."
     #endif
+    /*
     logFile = fopen("Scheduler.log", "w");
     fprintf(logFile, "#At  time  x  process  y  state  arr  w  total  z  remain  y  wait  k\n");//should we ingnore this line ?
-    
+    */
     //TODO implement the scheduler :)
     //upon termination release the clock resources.
     
@@ -201,6 +148,27 @@ int main(int argc, char * argv[])
     destroyClk(true);
 }
 
+int child(void)
+{
+    /* Super Loop to keep track the clock */
+    int clk = 0;
+    for(;;)
+    {
+        initClk();
+
+        /* To detect the new cycle */
+        if(getClk() != clk) {
+            printf("I am the child! Time here is: %d\n", clk);
+            fflush(0);
+            clk = getClk();
+            #if (NOTIFICATION == 1)
+            printf("Notification (Scheduler): Processes' Information have been updated successfully!\n");
+            fflush(0);
+            #endif
+            // updateInformation();
+        }
+    }
+}
 
 void RR(int quantum)
 {
@@ -258,9 +226,9 @@ void RR(int quantum)
 
 }
 
-
 /* Warning: Under development */
-void HPF(void) {
+void HPF(void)
+{
     int pid;
     int timeToStop;
 
@@ -288,6 +256,112 @@ void HPF(void) {
     }
 }
 
+void SRTN(void)
+{
+
+}
+
+void updateInformation(void) {
+    /* Update information for the currently running process */
+    Process_Table[current_process_id].cumulativeRunningTime += 1;
+
+    /* Update information for the waiting processes */
+    for(int i = 0; i < total_number_of_received_process; i++)
+    {
+        if (i == current_process_id)
+            continue;
+
+        Process_Table[i].waitingTime += 1;
+        Process_Table[i].remainingTime -= 1;
+    }
+}
+
+void Context_Switching_To_Run(int Entry_Number)
+{
+    int Process_id = Process_Table[Entry_Number].id;
+    Process_Table[Entry_Number].state = RUNNING;
+    Process_Table[Entry_Number].waitingTime += (getClk()-(Process_Table[Entry_Number].waiting_start_time));
+    Process_Table[Entry_Number].running_start_time = getClk(); 
+    fprintf(logFile, "At  time  %d  process  %i  resumed  arr  %d  total  %d  remain  %d  wait  %d\n", 
+        Process_Table[Entry_Number].running_start_time,
+        Entry_Number,
+        Process_Table[Entry_Number].arrivalTime,
+        Process_Table[Entry_Number].executionTime,    //to make sure ?!
+        Process_Table[Entry_Number].remainingTime,
+        Process_Table[Entry_Number].waitingTime 
+    );
+    kill(Process_id,SIGCONT); //continue the stopped process
+}
+
+void Context_Switching_To_Wait(int Entry_Number)
+{
+    int Process_id = Process_Table[Entry_Number].id;
+    Process_Table[Entry_Number].state = WAITING;
+    Process_Table[Entry_Number].remainingTime-=(getClk()-(Process_Table[Entry_Number].running_start_time));
+    Process_Table[Entry_Number].waiting_start_time=getClk();
+    fprintf(logFile, "At  time  %d  process  %i  stopped  arr  %d  total  %d  remain  %d  wait  %d\n", 
+        Process_Table[Entry_Number].running_start_time,
+        Entry_Number,
+        Process_Table[Entry_Number].arrivalTime,
+        Process_Table[Entry_Number].executionTime,    //to make sure ?!
+        Process_Table[Entry_Number].remainingTime,
+        Process_Table[Entry_Number].waitingTime 
+    );
+    kill(Process_id,SIGSTOP); //stopping it to the waiting state
+}
+
+void Context_Switching_To_Start(int Entry_Number)
+{
+    int pid = fork();
+    if(pid == -1)
+    {
+        perror("error in fork\n");
+        exit(0);
+    }
+    //put it in the Process
+    Process_Table[Entry_Number].id = pid;
+    int Process_id = Process_Table[Entry_Number].id;
+    Process_Table[Entry_Number].state = RUNNING;
+    Process_Table[Entry_Number].waitingTime +=(getClk()-(Process_Table[Entry_Number].waiting_start_time));
+    Process_Table[Entry_Number].running_start_time=getClk();
+
+    fprintf(logFile, "At  time  %d  process  %i  started  arr  %d  total  %d  remain  %d  wait  %d\n", 
+        Process_Table[Entry_Number].running_start_time,
+        Entry_Number,
+        Process_Table[Entry_Number].arrivalTime,
+        Process_Table[Entry_Number].executionTime,    //to make sure ?!
+        Process_Table[Entry_Number].remainingTime,
+        Process_Table[Entry_Number].waitingTime 
+    );
+}
+
+void Terminate_Process(int Entry_Number)
+{
+    int Process_id = Process_Table[Entry_Number].id;
+    int clk = getClk();
+    kill(Process_id,SIGKILL);
+
+    fprintf(logFile, "At  time  %d  process  %i  finished  arr  %d  total  %d  remain  %d  wait  %d  TA  %d  WTA  %d\n", 
+        clk,         //to make sure
+        Entry_Number,
+        Process_Table[Entry_Number].arrivalTime,
+        Process_Table[Entry_Number].executionTime,    //to make sure ?!
+        Process_Table[Entry_Number].remainingTime,
+        Process_Table[Entry_Number].waitingTime,
+        clk - Process_Table[Entry_Number].arrivalTime,
+        (clk - Process_Table[Entry_Number].arrivalTime) / Process_Table[Entry_Number].executionTime
+    );
+}
+
+void checkProcessArrival()
+{
+    //to implement --> IPC
+    //hint --> we have to give this comming process an id = num_of_nodes in the readyQ
+    //the id in the readyQ will be from 0 --> total_num_of_processes - 1
+    //which differ from the id in the Process --> which will be the id returned from forking
+
+    //Process_Table[Entry_Number].arrivalTime,
+}
 
 void handler_notify_scheduler_I_terminated(int signum)
 {
