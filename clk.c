@@ -21,8 +21,9 @@ void cleanup(int signum)
 int main(int argc, char * argv[])
 {
     printf("Clock starting\n");
-    // WARNING: Don't forget to uncomment the next line
-    // signal(SIGINT, cleanup);
+    #if (HANDLERS == 1)
+    signal(SIGINT, cleanup);
+    #endif
     int clk = 0;
     //Create shared memory for one integer variable 4 bytes
     key_t key = ftok("key.txt" ,67);

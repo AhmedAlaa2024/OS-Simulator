@@ -14,7 +14,18 @@
 #include <unistd.h>
 #include <signal.h>
 
-#define DEBUGGING   1
+/* Set it to 1 to use the nondefault handlers for some signals speciefied in the code! */
+#define HANDLERS        0
+
+/* Set it to 0 if you want to disable the warnings written withen the code! */
+#define WARNINGS        1
+
+/* Set it to 0 if you want to disable the notifications upon communication written withen the code! */
+#define NOTIFICATION    1
+
+/* Set it to 0 if you want to disable the debugging mode! */
+#define DEBUGGING       1
+
 #define ADDRESS(element) (&(element))
 
 typedef short bool;
@@ -27,6 +38,12 @@ typedef enum {
     RUNNING = 0,
     WAITING = 1
 } State;
+
+typedef enum {
+    HPF_ALGORITHM = 0,
+    SRTN_ALGORITHM = 1,
+    RR_ALGORITHM = 2
+} ALGORITHM;
 
 typedef struct {
     //int state; //running 0 , waiting 1

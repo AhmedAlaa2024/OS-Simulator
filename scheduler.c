@@ -2,6 +2,7 @@
 #include "priority_queue.h"
 
 FILE* logFile, *perfFile;
+ALGORITHM algorithm;
 PriorityQueue readyQ;
 Process* Process_Table;
 void RR(int quantum);
@@ -116,6 +117,10 @@ void checkProcessArrival()
 
 int main(int argc, char * argv[])
 {
+    #if (DEBUGGING == 1)
+    printf("Debugging mode is ON!\n");
+    #endif
+
     initClk();
 
     /* Create a message buffer between process_generator and scheduler */
@@ -126,24 +131,68 @@ int main(int argc, char * argv[])
         perror("Error in create!");
         exit(1);
     }
+    #if (NOTIFICATION == 1)
     printf("Message Queue ID = %d\n", msg_id);
+    #endif
 
     MsgBuf msgbuf;
 
-    #if(DEBUGGING == 1)
-    while(1) {
+    #if (DEBUGGING == 1) // To debug the communication between the scheduler module and the process_generator module
+    for(;;)
+    {
         // printf("Schedule: I am debugging!");
-        fflush(0);
+        // fflush(0);
         int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, !(IPC_NOWAIT));
         printf("DEBUGGING: { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
         fflush(0);
     }
-    // WARNING: Don't forget to elminate the next file
+    
     return 0;
     #endif
 
+    Process process;
+    #if (WARNINGS == 1)
+    #warning "For now, I used a super loop, but We should change it to be a callback function, called when the scheduler is notified that there is an arrived process! The warning came from Line 153 in scheduler.c!"
+    #endif
+    for(;;)
+    {
+        int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, !(IPC_NOWAIT));
+        #if (NOTIFICATION == 1)
+        printf("Notification: { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
+        #endif
+
+        process.id = msgbuf.id;
+        process.waitingTime = msgbuf.waitingTime;
+        process.remainingTime = msgbuf.remainingTime;
+        process.executionTime = msgbuf.executionTime;
+        process.priority = msgbuf.priority;
+        process.cumulativeRunningTime = msgbuf.cumulativeRunningTime;
+        process.waiting_start_time = msgbuf.waiting_start_time;
+        process.running_start_time = msgbuf.running_start_time;
+        process.arrivalTime = msgbuf.arrivalTime;
+        process.state = msgbuf.state;
+
+        if (algorithm == HPF_ALGORITHM)
+            pq_push(&readyQ, &process, process.priority);
+        else if (algorithm == SRTN_ALGORITHM) { /* WARNING: This needs change depends on the SRTN algorithm */
+            #if (WARNINGS == 1)
+            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm. The warning came from Line 167 in scheduler.c!"
+            #endif
+            pq_push(&readyQ, &process, process.priority);
+        }
+        else if (algorithm == RR_ALGORITHM) {
+            #if (WARNINGS == 1)
+            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm. The warning came from Line 171 in scheduler.c!"
+            #endif
+            pq_push(&readyQ, &process, process.priority);
+        }
+    }
+    #if (WARNINGS == 1)
+    #warning "Scheduler: I think we should make the logging in periodic maner. I suggest to put it in updateInformation function which is calledback every clock."
+    #endif
     logFile = fopen("Scheduler.log", "w");
     fprintf(logFile, "#At  time  x  process  y  state  arr  w  total  z  remain  y  wait  k\n");//should we ingnore this line ?
+    
     //TODO implement the scheduler :)
     //upon termination release the clock resources.
     

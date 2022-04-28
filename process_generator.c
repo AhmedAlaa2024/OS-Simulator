@@ -7,6 +7,10 @@ void clearResources(int);
 
 int main(int argc, char * argv[])
 {
+    #if (DEBUGGING == 1)
+    printf("Debugging mode is ON!\n");
+    #endif
+
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
     int msg_id =msgget( key, (IPC_CREAT | 0660) );
@@ -15,16 +19,18 @@ int main(int argc, char * argv[])
         perror("Error in create!");
         exit(1);
     }
+
+    #if (NOTIFICATION == 1)
     printf("Message Queue ID = %d\n", msg_id);
+    #endif
 
     MsgBuf msgbuf;
 
-    #if(DEBUGGING == 1)
-    printf("DEBUGGING: Here!");
+    #if (HANDLERS == 1)
+    signal(SIGINT, clearResources);
     #endif
-    // WARNING: Don't forget to uncomment the next line
-    // signal(SIGINT, clearResources);
-    // TODO Initialization
+
+    /* TODO Initialization */
     // 1. Read the input files.
     int process[4];
     int i;
@@ -54,7 +60,9 @@ int main(int argc, char * argv[])
     initClk();
     // To get time use this
     int x = getClk();
+    #if (DEBUGGING == 1)
     printf("current time is %d\n", x);
+    #endif
     // TODO Generation Main Loop
     // 5. Create a data structure for processes and provide it with its parameters.
 
@@ -70,7 +78,7 @@ int main(int argc, char * argv[])
 
         if(pq_peek(&processQ)->arrivalTime == getClk()) {
             // Send to scheduler
-            msgbuf.mtype = ;
+            msgbuf.mtype = 7;
             Process *ptr = pq_pop(&processQ);
 
             msgbuf.id = ptr->id;
