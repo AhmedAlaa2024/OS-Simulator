@@ -57,10 +57,9 @@ int main(int argc, char * argv[])
     while(!pq_isEmpty(&processQ))
     {
         #if(DEBUGGING == 1)
-        printf("Clock Now: %d\n", getClk());
         int pid = pq_peek(&processQ)->id;
         int arrivalTime = pq_peek(&processQ)->arrivalTime;
-        printf("DEBUGGING: { \ntime: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), pid, arrivalTime);
+        printf("DEBUGGING: { \nClock Now: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), pid, arrivalTime);
         #endif
 
         if(pq_peek(&processQ)->arrivalTime == getClk()) {

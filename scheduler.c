@@ -123,9 +123,13 @@ int main(int argc, char * argv[])
     int msg_id =msgget( key, (IPC_CREAT | 0660) );
     MsgBuf msgbuf;
     #if(DEBUGGING == 1)
-    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(Process), 0, !(IPC_NOWAIT));
-    printf("DEBUGGING: { \nProcess ID: %d\n, nProcessArrival Time: %d\n}\n", msgbuf.mprocess.id, msgbuf.mprocess.arrivalTime);
-
+    while(1) {
+        printf("Schedule: I am debugging!");
+        fflush(0);
+        int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(Process), 0, !(IPC_NOWAIT));
+        printf("DEBUGGING: { \nProcess ID: %d\n, nProcessArrival Time: %d\n}\n", msgbuf.mprocess.id, msgbuf.mprocess.arrivalTime);
+        fflush(0);
+    }
     // WARNING: Don't forget to elminate the next file
     return 0;
     #endif
