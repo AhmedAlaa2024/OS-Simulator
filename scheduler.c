@@ -7,24 +7,24 @@ PriorityQueue readyQ;
 Process* Process_Table;
 void RR(int quantum);
 
-/* Systick callback the scheduler.updateInformation()
-   1. Increase cummualtive running time for the running process
-   2. Increase waiting time for the waited process
-   3. Decrease the remaining time
-   ---------
-   4. Need to fork process (Uncle) to trace the clocks and interrupt the scheduler (Parent) to do the callback
-   5. We need the context switching to change the state, kill, print.
-   ----------------------------------------------------------------------------------
-   Note:
-   1. We need to make the receiving operation with notification with no blocking.
-   2. Set a handler upon the termination.
-   ----------------------------------------------------------------------------------
-   ERROR: Clock Mismatch!!
-*/
+#if (WARNINGS == 1)
+#warning "Scheduler: Read the following notes carefully!"
+#warning "Systick callback the scheduler.updateInformation()
+#warning "1. Increase cummualtive running time for the running process"
+#warning "2. Increase waiting time for the waited process"
+#warning "3. Decrease the remaining time"
+#warning "-----------------------------------------------------------------------------------------------------------------"
+#warning "4. Need to fork process (Uncle) to trace the clocks and interrupt the scheduler (Parent) to do the callback"
+#warning "5. We need the context switching to change the state, kill, print."
+#warning "-----------------------------------------------------------------------------------------------------------------"
+#warning "Note:"
+#warning "1. We need to make the receiving operation with notification with no blocking."
+#warning "2. Set a handler upon the termination."
+#warning "-----------------------------------------------------------------------------------------------------------------"
+#endif
 
 void updateInformation(void) {
     int process;
-    
 }
 
 void Context_Switching_To_Run(int Entry_Number)
@@ -152,7 +152,7 @@ int main(int argc, char * argv[])
 
     Process process;
     #if (WARNINGS == 1)
-    #warning "For now, I used a super loop, but We should change it to be a callback function, called when the scheduler is notified that there is an arrived process! The warning came from Line 153 in scheduler.c!"
+    #warning "For now, I used a super loop, but We should change it to be a callback function, called when the scheduler is notified that there is an arrived process!"
     #endif
     for(;;)
     {
@@ -176,13 +176,13 @@ int main(int argc, char * argv[])
             pq_push(&readyQ, &process, process.priority);
         else if (algorithm == SRTN_ALGORITHM) { /* WARNING: This needs change depends on the SRTN algorithm */
             #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm. The warning came from Line 167 in scheduler.c!"
+            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
             #endif
             pq_push(&readyQ, &process, process.priority);
         }
         else if (algorithm == RR_ALGORITHM) {
             #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm. The warning came from Line 171 in scheduler.c!"
+            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
             #endif
             pq_push(&readyQ, &process, process.priority);
         }
