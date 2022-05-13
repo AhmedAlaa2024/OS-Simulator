@@ -5,8 +5,12 @@ FILE* logFile, *perfFile;
 ALGORITHM algorithm;
 PriorityQueue readyQ;
 Process* Process_Table;
+Process* running = NULL;
 int current_process_id;
 int total_number_of_received_process;
+int shmid;
+int remainingtime;
+int* shmRemainingtime;
 
 #if (WARNINGS == 1)
 #warning "Scheduler: Read the following notes carefully!"
@@ -46,6 +50,25 @@ int main(int argc, char * argv[])
     printf("Debugging mode is ON!\n");
     #endif
 
+    //the remainging time of the current running process
+    key_t key_id;
+    key_id = ftok("key", 65);
+    shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0644);
+    if (shmid == -1)
+    {
+        perror("Error in create");
+        exit(-1);
+    }
+    
+    //make running process --> shared between the parent(scheduler) and the child(systick)
+    key_id = ftok("key", 67);
+    int shmid_running = shmget(key_id, sizeof(running), IPC_CREAT | 0644);
+    if (shmid_running == -1)
+    {
+        perror("Error in create");
+        exit(-1);
+    }
+
     int pid;
 
     pid = fork();
@@ -69,6 +92,23 @@ int main(int argc, char * argv[])
 int parent(void)
 {
     initClk();
+
+    signal(SIGCHLD, ProcessTerminates);
+
+    shmRemainingtime = (int*)shmat(shmid, (void *)0, 0);
+    if (shmRemainingtime == -1)
+    {
+        perror("Error in attach in scheduler");
+        exit(-1);
+    }
+
+    running = (Process*)shmat(shmid, (void *)0, 0);
+    if (shmRemainingtime == -1)
+    {
+        perror("Error in attach in scheduler");
+        exit(-1);
+    }
+    
 
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
@@ -154,6 +194,14 @@ int child(void)
     /* Super Loop to keep track the clock */
     int clk = 0;
     initClk();
+
+    shmRemainingtime = (int*)shmat(shmid, (void *)0, 0);
+    if (shmRemainingtime == -1)
+    {
+        perror("Error in attach in scheduler");
+        exit(-1);
+    }
+    
     for(;;)
     {
         /* To detect the new cycle */
@@ -175,13 +223,33 @@ int child(void)
 void RR(int quantum)
 {
     int pid, pr;
-    int clk ;//= getClk();
+    int clk = getClk();
     int timeToStop;
+    int currentQuantum = quantum;
     //loop on the ready  q
     while(1){
         while(!pq_isEmpty(&readyQ))
         {
-            checkProcessArrival();
+            //if there exist a process that is already running
+            if(running)
+            {
+                if(clk != getClk())
+                {
+                    currentQuantum--;
+                    clk = getClk();
+                    if(currentQuantum == 0)
+                    {
+                        //then block this process
+                        //kill()
+                    }
+                }
+                    
+            }
+            else
+            {
+
+            }
+            //checkProcessArrival();
 
             Process* p = pq_pop(&readyQ);
             
@@ -326,16 +394,16 @@ void SRTN(void)
 
 void updateInformation(void) {
     /* Update information for the currently running process */
-    Process_Table[current_process_id].cumulativeRunningTime += 1;
+    Process_Table[running->id].cumulativeRunningTime += 1;
 
     /* Update information for the waiting processes */
     for(int i = 0; i < total_number_of_received_process; i++)
     {
-        if (i == current_process_id)
+        if (i == running->id)
             continue;
 
         Process_Table[i].waitingTime += 1;
-        Process_Table[i].remainingTime -= 1;
+        Process_Table[i].remainingTime -= *shmRemainingtime;
     }
 }
 
@@ -427,13 +495,37 @@ void checkProcessArrival()
     //Process_Table[Entry_Number].arrivalTime,
 }
 
-void handler_notify_scheduler_I_terminated(int signum)
+//handler_notify_scheduler_I_terminated
+void ProcessTerminates(int signum)
 {
     //TODO
     //implement what the scheduler should do when it gets notifies that a process is finished
-    //scheduler should delete its data
 
+    int Entry_Number = running->id;
+    int clk = getClk();
+    float TA = clk - Process_Table[Entry_Number].arrivalTime;
+    float WTA = TA / running->burstTime;
+    //print the information in the logfile
+    fprintf(logFile, "At  time  %d  process  %i  finished  arr  %d  total  %d  remain  %d  wait  %d  TA  %d  WTA  %d\n",
+        clk,         //to make sure
+        Entry_Number,
+        Process_Table[Entry_Number].arrivalTime,
+        Process_Table[Entry_Number].executionTime,    //to make sure ?!
+        Process_Table[Entry_Number].remainingTime,
+        Process_Table[Entry_Number].waitingTime,
+        clk - Process_Table[Entry_Number].arrivalTime,
+        (clk - Process_Table[Entry_Number].arrivalTime) / Process_Table[Entry_Number].executionTime,
+        TA,  //finish - arrival
+        WTA
+
+    );
+
+    //scheduler should delete its data from the process table
+    free(Process_Table + running->id);
     //call the function Terminate_Process
+    running = NULL;
+    signal(SIGCHLD, ProcessTerminates);
 }
+
 
 
