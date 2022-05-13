@@ -48,6 +48,7 @@ typedef enum {
 typedef struct {
     //int state; //running 0 , waiting 1
     int id;
+    int pid;
     int waitingTime;
     int remainingTime;
     int executionTime;
