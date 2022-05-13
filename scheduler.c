@@ -124,13 +124,13 @@ int parent(void)
             #if (WARNINGS == 1)
             #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
             #endif
-            pq_push(&readyQ, &process, process.priority);
+            pq_push(&readyQ, &process, process.remainingTime);
         }
         else if (algorithm == RR_ALGORITHM) {
             #if (WARNINGS == 1)
             #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
             #endif
-            pq_push(&readyQ, &process, process.priority);
+            pq_push(&readyQ, &process, 0);
         }
     }
     #if (WARNINGS == 1)
@@ -172,7 +172,7 @@ int child(void)
 
 void RR(int quantum)
 {
-    int pid;
+    int pid, pr;
     int clk ;//= getClk();
     int timeToStop;
     //loop on the ready  q
@@ -186,14 +186,22 @@ void RR(int quantum)
             if(p->executionTime == p->remainingTime)
             {
                 //meaning that it is the first time to be fun on the cpu
-                pid = execl(".", "./process.out", (char*) NULL); //rufaida-> not sure
-                if(pid == -1)
+                pid = fork();
+                if(pid == -1) perror("Error in fork!!");
+                if(pid == 0)
                 {
-                    perror("error in fork\n");
-                    exit(0);
+                    pr = execl("./process.out", "./process.out", (char*) NULL); //rufaida-> not sure
+                    if(pr == -1)
+                    {
+                        perror("Error in the process fork!\n");
+                        exit(0);
+                    }
                 }
-                //put it in the Process
-                Process_Table[p->id].id = pid;
+                else
+                {
+                    //put it in the Process
+                    Process_Table[p->id].pid = pid;
+                }
                 
                 
             }
@@ -231,6 +239,7 @@ void HPF(void)
 {
     int pid;
     int timeToStop;
+    int pr;
 
     for(;;) // Super Loop
     {
@@ -240,14 +249,22 @@ void HPF(void)
             Process* p = pq_pop(&readyQ);
 
             //meaning that it is the first time to be fun on the cpu
-            pid = execl(".", "./process.out", (char*) NULL); //rufaida-> not sure
-            if(pid == -1)
+            pid = fork();
+            if(pid == -1) perror("Error in fork!!");
+            if(pid == 0)
             {
-                perror("Error in the process fork!\n");
-                exit(0);
+                pr = execl("./process.out", "./process.out", (char*) NULL); //rufaida-> not sure
+                if(pr == -1)
+                {
+                    perror("Error in the process fork!\n");
+                    exit(0);
+                }
             }
-            //put it in the Process
-            Process_Table[p->id].id = pid;
+            else
+            {
+                //put it in the Process
+                Process_Table[p->id].pid = pid;
+            }
             timeToStop = getClk() + Process_Table[p->id].executionTime;
 
             Context_Switching_To_Run(p->id);
@@ -260,7 +277,7 @@ void SRTN(void)
 {
     int clk = -1;
     int peek;
-    int pid;
+    int pid, pr;
     Process* current = NULL;
     do
     {
@@ -280,14 +297,22 @@ void SRTN(void)
             }
             current = pq_pop(&readyQ);
 
-            pid = execl(".", "./process.out", (char*) NULL); //rufaida-> not sure
-            if(pid == -1)
+            pid = fork();
+            if(pid == -1) perror("Error in fork!!");
+            if(pid == 0)
             {
-                perror("Error in the process fork!\n");
-                exit(0);
+                pr = execl("./process.out", "./process.out", (char*) NULL); //rufaida-> not sure
+                if(pr == -1)
+                {
+                    perror("Error in the process fork!\n");
+                    exit(0);
+                }
             }
-            //put it in the Process
-            Process_Table[current->id].id = pid;
+            else
+            {
+                //put it in the Process
+                Process_Table[current->id].pid = pid;
+            }
 
             Context_Switching_To_Start(current->id);
 

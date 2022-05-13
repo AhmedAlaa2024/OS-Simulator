@@ -76,7 +76,7 @@ int main(int argc, char * argv[])
         printf("DEBUGGING: { \nClock Now: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), pid, arrivalTime);
         #endif
 
-        if(pq_peek(&processQ)->arrivalTime == getClk()) {
+        if(pq_peek(&processQ)->arrivalTime <= getClk()) {
             // Send to scheduler
             msgbuf.mtype = 7;
             Process *ptr = pq_pop(&processQ);
