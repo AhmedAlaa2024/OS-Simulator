@@ -571,4 +571,6 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
     /* Parent is systemd, which means the process_generator is died! */
     if (getppid() == 1)
         process_generator_finished = true;
+
+    signal(signum, handler_notify_scheduler_new_process_has_arrived);
 }
