@@ -11,27 +11,48 @@ int main(int argc, char * argv[])
     printf("(Process_generator): Debugging mode is ON!\n");
     #endif
 
-    int pid = fork();
+    int clkPid;
+    int scdPid;
+    char algo[5];
+    char Quantum[7];
+    char c;
+    
+    printf("Please, choose scheduling algorithm, enter:\n HPF\nRR\nSRTN\n");
+    scanf("%s", &algo);
 
-    if (pid == -1) // I can't fork
+    if(algo == "HPF")  
+        c = '0';
+    else if(algo == "SRTN")
+        c = '1';
+    else if(algo == "RR")
+    {
+        c = '2';
+        printf("Please, enter Quantum");
+        scanf("%s", &Quantum);
+
+    }
+
+    clkPid = fork();
+
+    if (clkPid == -1) // I can't fork
     {
         perror("Error in forking!\n");
     }
-    else if (pid == 0) // I am a child
+    else if (clkPid == 0) // I am a child
     {
         if( execl("./clk.out", "clk.out", NULL) == -1)
             perror("Error in execl for clk forking\n");
     }
 
-    pid = fork();
+    scdPid = fork();
 
-    if (pid == -1) // I can't fork again
+    if (scdPid == -1) // I can't fork again
     {
         perror("Error in forking!\n");
     }
-    else if (pid == 0) // I am an another child
+    else if (scdPid == 0) // I am an another child
     {
-        if(execl("./scheduler.out", "scheduler.out", NULL) == -1)
+        if(execl("./scheduler.out", "scheduler.out", &c, &Quantum, NULL) == -1)
             perror("Error in execl for scheduler forking\n");
     }
     
@@ -114,9 +135,16 @@ int main(int argc, char * argv[])
             msgbuf.waiting_start_time = ptr->waitingTime;
             msgbuf.running_start_time = ptr->running_start_time;
             msgbuf.arrivalTime = ptr->arrivalTime;
-            msgbuf.state = ptr->state;
+
 
             int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
+
+            if(sendvalue == -1)
+                perror("error in sending process.\n");
+            else
+                //to get schedular attention.
+                kill(scdPid, SIGUSR1);
+            
         }
     }
     

@@ -8,6 +8,12 @@ Process* Process_Table;
 int current_process_id;
 int total_number_of_received_process;
 
+int Q;
+
+key_t key;
+int msg_id;
+MsgBuf msgbuf;
+
 #if (WARNINGS == 1)
 #warning "Scheduler: Read the following notes carefully!"
 #warning "Systick callback the scheduler.updateInformation()"
@@ -40,8 +46,34 @@ void Context_Switching_To_Start(int Entry_Number);
 void Terminate_Process(int Entry_Number);
 void checkProcessArrival(void);
 
+void PGenHandler(int signum);
+
+
 int main(int argc, char * argv[])
 {
+    int i;
+    if(argc < 2) { perror("Too few CLA!!"); return -1;}
+    switch (argv[1][0])
+    {
+    case '0':
+        algorithm = HPF_ALGORITHM;
+        break;
+    
+    case '1':
+        algorithm = SRTN_ALGORITHM;
+        break;
+    case '2':
+        algorithm = RR_ALGORITHM;
+        if(argc < 3) { perror("Too few CLA!!"); return -1;}
+        i = 0;
+        Q = 0;
+        while(argv[2][i])
+            Q = Q * 10 + argv[2][i++] - '0';
+    break;
+    default:
+    perror("undefined algorithm");
+    return -1;
+    }
     #if (DEBUGGING == 1)
     printf("Debugging mode is ON!\n");
     #endif
@@ -70,9 +102,12 @@ int parent(void)
 {
     initClk();
 
+    //set processGenerator handler
+    signal(SIGUSR1, PGenHandler);
+
     /* Create a message buffer between process_generator and scheduler */
-    key_t key = ftok("key.txt" ,66);
-    int msg_id =msgget( key, (IPC_CREAT | 0660) );
+    key = ftok("key.txt" ,66);
+    msg_id = msgget( key, (IPC_CREAT | 0660) );
 
     if (msg_id == -1) {
         perror("Error in create!");
@@ -81,8 +116,6 @@ int parent(void)
     #if (NOTIFICATION == 1)
     printf("Notification (Scheduler): Message Queue ID = %d\n", msg_id);
     #endif
-
-    MsgBuf msgbuf;
 
     #if (DEBUGGING == 1) // To debug the communication between the scheduler module and the process_generator module
     for(;;)
@@ -97,43 +130,23 @@ int parent(void)
     return 0;
     #endif
 
-    Process process;
+    switch (algorithm)
+    {
+    case RR_ALGORITHM:
+        RR(Q);
+        break;
+    case HPF_ALGORITHM:
+        HPF();
+        break;
+
+    case SRTN_ALGORITHM:
+        SRTN();
+        break;
+    }
     #if (WARNINGS == 1)
     #warning "For now, I used a super loop, but We should change it to be a callback function, called when the scheduler is notified that there is an arrived process!"
     #endif
-    for(;;)
-    {
-        int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, !(IPC_NOWAIT));
-        #if (NOTIFICATION == 1)
-        printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
-        #endif
-
-        process.id = msgbuf.id;
-        process.waitingTime = msgbuf.waitingTime;
-        process.remainingTime = msgbuf.remainingTime;
-        process.executionTime = msgbuf.executionTime;
-        process.priority = msgbuf.priority;
-        process.cumulativeRunningTime = msgbuf.cumulativeRunningTime;
-        process.waiting_start_time = msgbuf.waiting_start_time;
-        process.running_start_time = msgbuf.running_start_time;
-        process.arrivalTime = msgbuf.arrivalTime;
-        process.state = msgbuf.state;
-
-        if (algorithm == HPF_ALGORITHM)
-            pq_push(&readyQ, &process, process.priority);
-        else if (algorithm == SRTN_ALGORITHM) { /* WARNING: This needs change depends on the SRTN algorithm */
-            #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-            #endif
-            pq_push(&readyQ, &process, process.remainingTime);
-        }
-        else if (algorithm == RR_ALGORITHM) {
-            #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-            #endif
-            pq_push(&readyQ, &process, 0);
-        }
-    }
+    
     #if (WARNINGS == 1)
     #warning "Scheduler: I think we should make the logging in periodic maner. I suggest to put it in updateInformation function which is calledback every clock."
     #endif
@@ -397,6 +410,7 @@ void Context_Switching_To_Start(int Entry_Number)
         Process_Table[Entry_Number].waitingTime 
     );
 }
+
 //rufaida-> why terminate???
 void Terminate_Process(int Entry_Number)
 {
@@ -417,15 +431,44 @@ void Terminate_Process(int Entry_Number)
     );
 }
 
-void checkProcessArrival()
+void PGenHandler(int signum)
 {
-    //to implement --> IPC
-    //hint --> we have to give this comming process an id = num_of_nodes in the readyQ
-    //the id in the readyQ will be from 0 --> total_num_of_processes - 1
-    //which differ from the id in the Process --> which will be the id returned from forking
+    Process process;
 
-    //Process_Table[Entry_Number].arrivalTime,
+    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, (IPC_NOWAIT));
+        #if (NOTIFICATION == 1)
+        printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
+        #endif
+
+        process.id = msgbuf.id;
+        process.waitingTime = msgbuf.waitingTime;
+        process.remainingTime = msgbuf.remainingTime;
+        process.executionTime = msgbuf.executionTime;
+        process.priority = msgbuf.priority;
+        process.cumulativeRunningTime = msgbuf.cumulativeRunningTime;
+        process.waiting_start_time = msgbuf.waiting_start_time;
+        process.running_start_time = msgbuf.running_start_time;
+        process.arrivalTime = msgbuf.arrivalTime;
+        process.state = READY;
+
+        if (algorithm == HPF_ALGORITHM)
+            pq_push(&readyQ, &process, process.priority);
+        else if (algorithm == SRTN_ALGORITHM) { /* WARNING: This needs change depends on the SRTN algorithm */
+            #if (WARNINGS == 1)
+            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
+            #endif
+            pq_push(&readyQ, &process, process.remainingTime);
+        }
+        else if (algorithm == RR_ALGORITHM) {
+            #if (WARNINGS == 1)
+            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
+            #endif
+            pq_push(&readyQ, &process, 0);
+        }
+
+    signal(PGenHandler, SIGUSR1);
 }
+
 
 void handler_notify_scheduler_I_terminated(int signum)
 {
