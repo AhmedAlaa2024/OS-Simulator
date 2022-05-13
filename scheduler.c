@@ -70,8 +70,7 @@ int main(int argc, char * argv[])
     printf("Debugging mode is ON!\n");
     #endif
 
-    signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
-    
+
     key_t key1 = ftok("key.txt" ,77);
     int shmid1 = shmget(key1, 512 * 1024, IPC_CREAT | 0666); // We allocated 512 KB
     Process_Table = (Process*) shmat(shmid1, NULL, 0);
@@ -98,6 +97,7 @@ int main(int argc, char * argv[])
     }
     else /* Hi, I am the parent! */
     { 
+        signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
         parent();   
     }
 }
@@ -157,6 +157,8 @@ int parent(void)
             #endif
             pq_push(&readyQ, Process_Table + msgbuf.id, 0);
         }
+
+        pq_pop(&readyQ);
     }
     printf("Algorithm is finished!\n");
 
@@ -372,7 +374,7 @@ void updateInformation() {
         return;
     }
 
-    printf("DEBUGGING: { \nClock Now: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), Process_Table[*total_number_of_received_process-1].pid, Process_Table[*total_number_of_received_process-1].arrivalTime);
+    // printf("DEBUGGING: { \nClock Now: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), Process_Table[*total_number_of_received_process-1].pid, Process_Table[*total_number_of_received_process-1].arrivalTime);
 
     Process_Table[*current_process_id].cumulativeRunningTime += 1;
     Process_Table[*current_process_id].remainingTime -= 1;
@@ -487,7 +489,9 @@ void handler_notify_scheduler_I_terminated(int signum)
 
 void handler_notify_scheduler_new_process_has_arrived(int signum)
 {
-    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, IPC_NOWAIT);
+    printf("Scehduler: I received!\n");
+    fflush(0);
+    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, !(IPC_NOWAIT));
     #if (NOTIFICATION == 1)
     printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
     #endif
@@ -506,6 +510,11 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
     Process_Table[msgbuf.id].state = msgbuf.state;
 
     /* Parent is systemd, which means the process_generator is died! */
-    if (getppid() == 1)
+    if (getppid() == 1) {
+        printf("My father is died!\n");
+        fflush(0);
         process_generator_finished = true;
+    }
+
+    signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
 }

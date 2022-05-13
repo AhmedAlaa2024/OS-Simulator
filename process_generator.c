@@ -3,10 +3,17 @@
 #include <string.h>
 #define LINE_SIZE 300
 
+int msg_id;
+
 void clearResources(int);
+void handler(int signum){
+    signal(SIGUSR1, handler);
+}
 
 int main(int argc, char * argv[])
 {
+    signal(SIGUSR1, handler);
+    signal(SIGINT, clearResources);
     #if (DEBUGGING == 1)
     printf("(Process_generator): Debugging mode is ON!\n");
     #endif
@@ -37,7 +44,7 @@ int main(int argc, char * argv[])
 
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
-    int msg_id =msgget( key, (IPC_CREAT | 0660) );
+    msg_id = msgget( key, (IPC_CREAT | 0660) );
 
     if (msg_id == -1) {
         perror("Error in create!");
@@ -94,7 +101,6 @@ int main(int argc, char * argv[])
     
     while(!pq_isEmpty(&processQ))
     {
-
         if(pq_peek(&processQ)->arrivalTime <= getClk()) {
             #if(DEBUGGING == 1)
             int pid = pq_peek(&processQ)->id;
@@ -117,16 +123,25 @@ int main(int argc, char * argv[])
             msgbuf.arrivalTime = ptr->arrivalTime;
             msgbuf.state = ptr->state;
             printf("Process_generator: I sent!\n");
-            int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), IPC_NOWAIT);
-            kill(pid, SIGUSR1);
+            int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
+            if (sendvalue == -1)
+                printf("Error in sending!\n");
+            else {
+                kill(pid, SIGUSR1);
+                printf("I killed my child!\n");
+            }
         }
     }
     
     // 7. Clear clock resources
-    destroyClk(true);
+    // destroyClk(true);
 }
 
 void clearResources(int signum)
 {
     //TODO Clears all resources in case of interruption
+    shmctl(get_shmid(), IPC_RMID, (struct shmid_ds *)0);
+    msgctl(msg_id, IPC_RMID, (struct msqid_ds *)0);
+    signal(SIGINT, clearResources);
+    exit(0);
 }
