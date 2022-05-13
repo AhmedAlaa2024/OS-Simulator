@@ -95,4 +95,5 @@ void initClk();
  *                      It terminates the whole system and releases resources.
 */
 void destroyClk(bool terminateAll);
+int get_shmid(void);
 #endif

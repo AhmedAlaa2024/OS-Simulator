@@ -3,6 +3,7 @@
 
 //don't mess with this variable//
 int * shmaddr;                 //
+int shmid;                     //
 //===============================
 
 Process* Process_Constructor(int id, int arrivaltime, int executiontime,int priority)
@@ -27,7 +28,7 @@ int getClk()
 void initClk()
 {
     key_t key = ftok("key.txt" ,67);
-    int shmid = shmget(key, 4, 0644 | IPC_CREAT);
+    shmid = shmget(key, 4, 0644 | IPC_CREAT);
     while (shmid == -1)
     {
         //Make sure that the clock exists
@@ -36,6 +37,11 @@ void initClk()
         shmid = shmget(key, 4, 0644 | IPC_CREAT);
     }
     shmaddr = (int *) shmat(shmid, (void *)0, 0);
+}
+
+int get_shmid(void)
+{
+    return shmid;
 }
 
 /*
