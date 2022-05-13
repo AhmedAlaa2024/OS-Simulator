@@ -34,7 +34,7 @@ int main(int argc, char * argv[])
         if(execl("./scheduler.out", "scheduler.out", NULL) == -1)
             perror("Error in execl for scheduler forking\n");
     }
-    
+
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
     int msg_id =msgget( key, (IPC_CREAT | 0660) );
@@ -94,13 +94,14 @@ int main(int argc, char * argv[])
     
     while(!pq_isEmpty(&processQ))
     {
-        #if(DEBUGGING == 1)
-        int pid = pq_peek(&processQ)->id;
-        int arrivalTime = pq_peek(&processQ)->arrivalTime;
-        printf("DEBUGGING: { \nClock Now: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), pid, arrivalTime);
-        #endif
 
         if(pq_peek(&processQ)->arrivalTime <= getClk()) {
+            #if(DEBUGGING == 1)
+            int pid = pq_peek(&processQ)->id;
+            int arrivalTime = pq_peek(&processQ)->arrivalTime;
+            printf("DEBUGGING: { \nClock Now: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), pid, arrivalTime);
+            #endif
+
             // Send to scheduler
             msgbuf.mtype = 7;
             Process *ptr = pq_pop(&processQ);
@@ -115,8 +116,9 @@ int main(int argc, char * argv[])
             msgbuf.running_start_time = ptr->running_start_time;
             msgbuf.arrivalTime = ptr->arrivalTime;
             msgbuf.state = ptr->state;
-
-            int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
+            printf("Process_generator: I sent!\n");
+            int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), IPC_NOWAIT);
+            kill(pid, SIGUSR1);
         }
     }
     
