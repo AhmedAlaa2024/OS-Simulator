@@ -11,6 +11,30 @@ int main(int argc, char * argv[])
     printf("(Process_generator): Debugging mode is ON!\n");
     #endif
 
+    int pid = fork();
+
+    if (pid == -1) // I can't fork
+    {
+        perror("Error in forking!\n");
+    }
+    else if (pid == 0) // I am a child
+    {
+        if( execl("./clk.out", "clk.out", NULL) == -1)
+            perror("Error in execl for clk forking\n");
+    }
+
+    pid = fork();
+
+    if (pid == -1) // I can't fork again
+    {
+        perror("Error in forking!\n");
+    }
+    else if (pid == 0) // I am an another child
+    {
+        if(execl("./scheduler.out", "scheduler.out", NULL) == -1)
+            perror("Error in execl for scheduler forking\n");
+    }
+    
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
     int msg_id =msgget( key, (IPC_CREAT | 0660) );

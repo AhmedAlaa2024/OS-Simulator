@@ -16,5 +16,5 @@ int main(int agrc, char * argv[])
     
     destroyClk(false);
     
-    return 0;
+    exit(getpid());
 }

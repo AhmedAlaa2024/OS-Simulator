@@ -60,6 +60,7 @@ int main(int argc, char * argv[])
     }
     else /* Hi, I am the parent! */
     {
+        for(;;);   
         parent();   
     }
 }
@@ -152,20 +153,21 @@ int child(void)
 {
     /* Super Loop to keep track the clock */
     int clk = 0;
+    initClk();
     for(;;)
     {
-        initClk();
-
         /* To detect the new cycle */
         if(getClk() != clk) {
             printf("I am the child! Time here is: %d\n", clk);
             fflush(0);
             clk = getClk();
+
+            updateInformation();
+
             #if (NOTIFICATION == 1)
             printf("Notification (Scheduler): Processes' Information have been updated successfully!\n");
             fflush(0);
             #endif
-            // updateInformation();
         }
     }
 }
@@ -190,7 +192,7 @@ void RR(int quantum)
                 if(pid == -1) perror("Error in fork!!");
                 if(pid == 0)
                 {
-                    pr = execl("./process.out", "./process.out", (char*) NULL); //rufaida-> not sure
+                    pr = execl("./process.out", "process.out", (char*) NULL);
                     if(pr == -1)
                     {
                         perror("Error in the process fork!\n");
@@ -253,7 +255,7 @@ void HPF(void)
             if(pid == -1) perror("Error in fork!!");
             if(pid == 0)
             {
-                pr = execl("./process.out", "./process.out", (char*) NULL); //rufaida-> not sure
+                pr = execl("./process.out", "process.out", (char*) NULL);
                 if(pr == -1)
                 {
                     perror("Error in the process fork!\n");
@@ -301,7 +303,7 @@ void SRTN(void)
             if(pid == -1) perror("Error in fork!!");
             if(pid == 0)
             {
-                pr = execl("./process.out", "./process.out", (char*) NULL); //rufaida-> not sure
+                pr = execl("./process.out", "process.out", (char*) NULL);
                 if(pr == -1)
                 {
                     perror("Error in the process fork!\n");
@@ -399,8 +401,9 @@ void Context_Switching_To_Start(int Entry_Number)
 void Terminate_Process(int Entry_Number)
 {
     int Process_id = Process_Table[Entry_Number].id;
-    int clk = getClk();
-    kill(Process_id,SIGKILL);
+    free(Process_Table + Entry_Number);
+
+    int clk = getClk(); 
 
     fprintf(logFile, "At  time  %d  process  %i  finished  arr  %d  total  %d  remain  %d  wait  %d  TA  %d  WTA  %d\n", 
         clk,         //to make sure
