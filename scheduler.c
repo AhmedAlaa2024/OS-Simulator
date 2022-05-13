@@ -1,12 +1,27 @@
 #include "headers.h"
 #include "priority_queue.h"
+#include <string.h>
 
 FILE* logFile, *perfFile;
 ALGORITHM algorithm;
 PriorityQueue readyQ;
 Process* Process_Table;
-int current_process_id;
-int total_number_of_received_process;
+int* current_process_id;
+int* total_number_of_received_process;
+
+bool process_generator_finished = false;
+
+key_t key1;
+int shmid1;
+
+key_t key2;
+int shmid2;
+
+key_t key3;
+int shmid3;
+
+int msg_id;
+MsgBuf msgbuf;
 
 int Q;
 
@@ -29,6 +44,13 @@ MsgBuf msgbuf;
 #warning "2. Set a handler upon the termination."
 #warning "-----------------------------------------------------------------------------------------------------------------"
 #endif
+/*
+1. Signal from process_generator to scheduler to receive a new arrived process
+2. When process_generator is finsied, check ppid in scheduler at the end of the handler
+3. If ppid == 1 (systemd), then algorithm should now it have to finsih the exist process in readyQ only
+4. If not and there is no processes in readyQ, then algorithm should know there are process but not arrived yet,
+ so don't terminate.
+*/
 
 int parent(void);
 int child(void);
@@ -37,7 +59,7 @@ void RR(int quantum);
 void HPF(void);
 void SRTN(void);
 
-void updateInformation(void);
+void updateInformation();
 
 void Context_Switching_To_Run(int Entry_Number);
 void Context_Switching_To_Wait(int Entry_Number);
@@ -46,8 +68,7 @@ void Context_Switching_To_Start(int Entry_Number);
 void Terminate_Process(int Entry_Number);
 void checkProcessArrival(void);
 
-void PGenHandler(int signum);
-
+void handler_notify_scheduler_new_process_has_arrived(int signum);
 
 int main(int argc, char * argv[])
 {
@@ -78,6 +99,20 @@ int main(int argc, char * argv[])
     printf("Debugging mode is ON!\n");
     #endif
 
+    signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
+    
+    key_t key1 = ftok("key.txt" ,77);
+    int shmid1 = shmget(key1, 512 * 1024, IPC_CREAT | 0666); // We allocated 512 KB
+    Process_Table = (Process*) shmat(shmid1, NULL, 0);
+
+    key_t key2 = ftok("key.txt" ,78);
+    int shmid2 = shmget(key2, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
+    total_number_of_received_process = (int*) shmat(shmid2, NULL, 0);
+
+    key_t key3 = ftok("key.txt" ,79);
+    int shmid3 = shmget(key3, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
+    current_process_id = (int*) shmat(shmid3, NULL, 0);
+
     int pid;
 
     pid = fork();
@@ -91,8 +126,7 @@ int main(int argc, char * argv[])
         child();
     }
     else /* Hi, I am the parent! */
-    {
-        for(;;);   
+    { 
         parent();   
     }
 }
@@ -106,7 +140,7 @@ int parent(void)
     signal(SIGUSR1, PGenHandler);
 
     /* Create a message buffer between process_generator and scheduler */
-    key = ftok("key.txt" ,66);
+    key_t key = ftok("key.txt" ,66);
     msg_id = msgget( key, (IPC_CREAT | 0660) );
 
     if (msg_id == -1) {
@@ -116,6 +150,8 @@ int parent(void)
     #if (NOTIFICATION == 1)
     printf("Notification (Scheduler): Message Queue ID = %d\n", msg_id);
     #endif
+
+
 
     #if (DEBUGGING == 1) // To debug the communication between the scheduler module and the process_generator module
     for(;;)
@@ -143,9 +179,23 @@ int parent(void)
         SRTN();
         break;
     }
+
+    *total_number_of_received_process = 0;
+    *current_process_id = 0;
+
     #if (WARNINGS == 1)
     #warning "For now, I used a super loop, but We should change it to be a callback function, called when the scheduler is notified that there is an arrived process!"
     #endif
+    printf("Algorithm is running!\n");
+    while (!pq_isEmpty(&readyQ) || !process_generator_finished)
+    {
+        //call algorithms.
+    }
+    printf("Algorithm is finished!\n");
+
+    shmctl(shmid1, IPC_RMID, (struct shmid_ds *)0);
+    shmctl(shmid2, IPC_RMID, (struct shmid_ds *)0);
+    shmctl(shmid3, IPC_RMID, (struct shmid_ds *)0);
     
     #if (WARNINGS == 1)
     #warning "Scheduler: I think we should make the logging in periodic maner. I suggest to put it in updateInformation function which is calledback every clock."
@@ -164,6 +214,18 @@ int parent(void)
 
 int child(void)
 {
+    key_t key1 = ftok("key.txt" ,77);
+    int shmid1 = shmget(key1, 512 * 1024, IPC_CREAT | 0666); // We allocated 512 KB
+    Process_Table = (Process*) shmat(shmid1, NULL, 0);
+
+    key_t key2 = ftok("key.txt" ,78);   
+    int shmid2 = shmget(key2, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
+    total_number_of_received_process = (int*) shmat(shmid2, NULL, 0);
+
+    key_t key3 = ftok("key.txt" ,79);
+    int shmid3 = shmget(key3, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
+    current_process_id = (int*) shmat(shmid3, NULL, 0);
+
     /* Super Loop to keep track the clock */
     int clk = 0;
     initClk();
@@ -171,10 +233,8 @@ int child(void)
     {
         /* To detect the new cycle */
         if(getClk() != clk) {
-            printf("I am the child! Time here is: %d\n", clk);
-            fflush(0);
             clk = getClk();
-
+            
             updateInformation();
 
             #if (NOTIFICATION == 1)
@@ -337,18 +397,26 @@ void SRTN(void)
 
 }
 
-void updateInformation(void) {
+void updateInformation() {
     /* Update information for the currently running process */
-    Process_Table[current_process_id].cumulativeRunningTime += 1;
+    if (*total_number_of_received_process == 0)
+    {
+        printf("No received processes yet!\n");
+        return;
+    }
+
+    printf("DEBUGGING: { \nClock Now: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), Process_Table[*total_number_of_received_process-1].pid, Process_Table[*total_number_of_received_process-1].arrivalTime);
+
+    Process_Table[*current_process_id].cumulativeRunningTime += 1;
+    Process_Table[*current_process_id].remainingTime -= 1;
 
     /* Update information for the waiting processes */
-    for(int i = 0; i < total_number_of_received_process; i++)
+    for(int i = 0; i < *total_number_of_received_process; i++)
     {
-        if (i == current_process_id)
+        if (i == *current_process_id)
             continue;
 
         Process_Table[i].waitingTime += 1;
-        Process_Table[i].remainingTime -= 1;
     }
 }
 
@@ -480,3 +548,27 @@ void handler_notify_scheduler_I_terminated(int signum)
 }
 
 
+void handler_notify_scheduler_new_process_has_arrived(int signum)
+{
+    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, IPC_NOWAIT);
+    #if (NOTIFICATION == 1)
+    printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
+    #endif
+
+    *total_number_of_received_process += 1;
+
+    Process_Table[msgbuf.id].id = msgbuf.id;
+    Process_Table[msgbuf.id].waitingTime = msgbuf.waitingTime;
+    Process_Table[msgbuf.id].remainingTime = msgbuf.remainingTime;
+    Process_Table[msgbuf.id].executionTime = msgbuf.executionTime;
+    Process_Table[msgbuf.id].priority = msgbuf.priority;
+    Process_Table[msgbuf.id].cumulativeRunningTime = msgbuf.cumulativeRunningTime;
+    Process_Table[msgbuf.id].waiting_start_time = msgbuf.waiting_start_time;
+    Process_Table[msgbuf.id].running_start_time = msgbuf.running_start_time;
+    Process_Table[msgbuf.id].arrivalTime = msgbuf.arrivalTime;
+    Process_Table[msgbuf.id].state = msgbuf.state;
+
+    /* Parent is systemd, which means the process_generator is died! */
+    if (getppid() == 1)
+        process_generator_finished = true;
+}
