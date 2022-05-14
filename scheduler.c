@@ -7,12 +7,13 @@ ALGORITHM algorithm;
 PriorityQueue readyQ;
 Process* Process_Table;
 Process* running = NULL;
+Process idleProcess;
 int shmid;
 int remainingtime;
 int* shmRemainingtime;
 int* current_process_id;
 int* total_number_of_received_process;
-int* total_number_of_processes;
+int total_number_of_processes;
 
 bool process_generator_finished = false;
 
@@ -67,6 +68,33 @@ void handler_notify_scheduler_new_process_has_arrived(int signum);
 
 int main(int argc, char * argv[])
 {
+    initClk();
+
+    int i, Q;
+    if(argc < 3) { perror("Too few CLA!!"); return -1;}
+    switch (argv[2][1])
+    {
+    case '0':
+        algorithm = HPF_ALGORITHM;
+        break;
+    
+    case '1':
+        algorithm = SRTN_ALGORITHM;
+        break;
+    case '2':
+        algorithm = RR_ALGORITHM;
+        if(argc < 4) { perror("Too few CLA!!"); return -1;}
+        i = 0;
+        Q = 0;
+        while(argv[3][i])
+            Q = Q * 10 + argv[3][i++] - '0';
+    break;
+    default:
+    perror("undefined algorithm");
+    return -1;
+    }
+
+
     #if (DEBUGGING == 1)
     printf("Debugging mode is ON!\n");
     #endif
@@ -80,58 +108,16 @@ int main(int argc, char * argv[])
         perror("Error in create");
         exit(-1);
     }
-    
-    //make running process --> shared between the parent(scheduler) and the child(systick)
-    key_id = ftok("key", 67);
-    int shmid_running = shmget(key_id, sizeof(running), IPC_CREAT | 0644);
-    if (shmid_running == -1)
-    {
-        perror("Error in create");
-        exit(-1);
-    }
 
-    key1 = ftok("key.txt" ,77);
-    shmid1 = shmget(key1, 512 * 1024, IPC_CREAT | 0666); // We allocated 512 KB
-    Process_Table = (Process*) shmat(shmid1, NULL, 0);
+    idleProcess.id = 0;
 
-    key2 = ftok("key.txt" ,78);
-    shmid2 = shmget(key2, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
-    total_number_of_received_process = (int*) shmat(shmid2, NULL, 0);
+    total_number_of_processes = atoi(argv[1]);
 
-    key3 = ftok("key.txt" ,79);
-    shmid3 = shmget(key3, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
-    current_process_id = (int*) shmat(shmid3, NULL, 0);
-
-    key4 = ftok("key.txt" ,80);
-    shmid4 = shmget(key4, sizeof(int), IPC_CREAT | 0666);
-    
+    Process_Table = malloc(sizeof(Process)* (atoi(argv[1]) + 1));
 
 
-    int pid;
-
-    pid = fork();
-
-    if (pid == -1) /* I can't give birth for you! */
-    {
-        perror("Error in forking!");
-    }
-    else if (pid == 0) /* Hi, I am the child! */
-    {
-        child();
-    }
-    else /* Hi, I am the parent! */
-    { 
-        signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
-        parent();   
-    }
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-int parent(void)
-{
-    initClk();
-
-    signal(SIGCHLD, ProcessTerminates);
+   signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
+   signal(SIGCHLD, ProcessTerminates);
 
     shmRemainingtime = (int*)shmat(shmid, (void *)0, 0);
     if (shmRemainingtime == -1)
@@ -139,22 +125,6 @@ int parent(void)
         perror("Error in attach in scheduler");
         exit(-1);
     }
-
-    running = (Process*)shmat(shmid, (void *)0, 0);
-    if (!running)
-    {
-        perror("Error in attach in scheduler");
-        exit(-1);
-    }
-    
-
-    total_number_of_processes = (int*) shmat(shmid4, NULL, 0);
-    if (*total_number_of_processes == -1)
-    {
-        perror("Error in attach in scheduler");
-        exit(-1);
-    }
-
 
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
@@ -164,6 +134,12 @@ int parent(void)
         perror("Error in create!");
         exit(1);
     }
+
+
+
+
+
+
     #if (NOTIFICATION == 1)
     printf("Notification (Scheduler): Message Queue ID = %d\n", msg_id);
     #endif
@@ -179,7 +155,7 @@ int parent(void)
         printf("DEBUGGING: { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
         fflush(0);
     }
-    
+
     return 0;
     #endif
 
@@ -189,32 +165,26 @@ int parent(void)
     #if (WARNINGS == 1)
     #warning "For now, I used a super loop, but We should change it to be a callback function, called when the scheduler is notified that there is an arrived process!"
     #endif
-    printf("Algorithm is running!\n");
-    while (!pq_isEmpty(&readyQ) || !process_generator_finished)
-    {
-        if (algorithm == HPF_ALGORITHM)
-            pq_push(&readyQ, Process_Table + msgbuf.id, Process_Table[msgbuf.id].priority);
-        else if (algorithm == SRTN_ALGORITHM) { /* WARNING: This needs change depends on the SRTN algorithm */
-            #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-            #endif
-            pq_push(&readyQ, Process_Table + msgbuf.id, Process_Table[msgbuf.id].remainingTime);
-        }
-        else if (algorithm == RR_ALGORITHM) {
-            #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-            #endif
-            pq_push(&readyQ, Process_Table + msgbuf.id, 0);
-        }
 
-        pq_pop(&readyQ);
+
+     switch (algorithm)
+    {
+    case RR_ALGORITHM:
+        RR(Q);
+        break;
+    case HPF_ALGORITHM:
+        HPF();
+        break;
+
+    case SRTN_ALGORITHM:
+        SRTN();
+        break;
     }
-    printf("Algorithm is finished!\n");
 
     shmctl(shmid1, IPC_RMID, (struct shmid_ds *)0);
     shmctl(shmid2, IPC_RMID, (struct shmid_ds *)0);
     shmctl(shmid3, IPC_RMID, (struct shmid_ds *)0);
-    
+
     #if (WARNINGS == 1)
     #warning "Scheduler: I think we should make the logging in periodic maner. I suggest to put it in updateInformation function which is calledback every clock."
     #endif
@@ -224,52 +194,15 @@ int parent(void)
     */
     //TODO implement the scheduler :)
     //upon termination release the clock resources.
-    
+
 
     fclose(logFile);
     destroyClk(true);
+
 }
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-int child(void)
-{
-    key1 = ftok("key.txt" ,77);
-    shmid1 = shmget(key1, 512 * 1024, IPC_CREAT | 0666); // We allocated 512 KB
-    Process_Table = (Process*) shmat(shmid1, NULL, 0);
-
-    key2 = ftok("key.txt" ,78);   
-    shmid2 = shmget(key2, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
-    total_number_of_received_process = (int*) shmat(shmid2, NULL, 0);
-
-    key3 = ftok("key.txt" ,79);
-    shmid3 = shmget(key3, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
-    current_process_id = (int*) shmat(shmid3, NULL, 0);
-
-    /* Super Loop to keep track the clock */
-    int clk = 0;
-    initClk();
-
-    shmRemainingtime = (int*)shmat(shmid, (void *)0, 0);
-    if (shmRemainingtime == -1)
-    {
-        perror("Error in attach in scheduler");
-        exit(-1);
-    }
-    
-    for(;;)
-    {
-        /* To detect the new cycle */
-        if(getClk() != clk) {
-            clk = getClk();
-            
-            updateInformation();
-
-            #if (NOTIFICATION == 1)
-            printf("Notification (Scheduler): Processes' Information have been updated successfully!\n");
-            fflush(0);
-            #endif
-        }
-    }
-}
 
 //from the parent we will run each scheduler each clock cycle
 void RR(int quantum)
@@ -281,18 +214,18 @@ void RR(int quantum)
 
     while(total_number_of_processes)
     {
+        
         if(running)
         {
+            *current_process_id = running->id;
             currentQuantum--;
             running->remainingTime = *shmRemainingtime;
             running->cumulativeRunningTime++;
-            running->running_start_time = getClk();
+            
 
             if(currentQuantum == 0)
             {
                 running->state = WAITING;
-                //update also the state in the process table
-                Process_Table[running->id].state = WAITING;
 
                 //send signal stop to this process and insert it back in the ready queue
                 running->waiting_start_time = getClk();
@@ -309,7 +242,9 @@ void RR(int quantum)
             {
                 running = pq_pop(&readyQ);
                 *current_process_id = running->id;
+                
                 currentQuantum = quantum;
+                running->cumulativeRunningTime++;
                 if(running->state == READY)
                 {
                     //meaning that it is the first time to be fun on the cpu
@@ -330,7 +265,7 @@ void RR(int quantum)
                     running->pid = pid;
                     running->state = RUNNING;
                     running->running_start_time = getClk();
-                    Process_Table[running->id].pid = pid;
+                    
 
                     write_in_logfile_start();
                 }
@@ -339,14 +274,14 @@ void RR(int quantum)
                     kill(running->pid, SIGCONT); //TO ASK
                     running->state = RUNNING;
                     running->running_start_time = getClk();
-                    running->remainingTime = *shmRemainingtime;
-
+                    *shmRemainingtime = running->remainingTime;
                     write_in_logfile_resume();
                 }
             }
-            
+
 
         }
+        updateInformation();
 
         while(clk == getClk());
         clk = getClk();
@@ -386,7 +321,7 @@ void HPF(void)
                 //put it in the Process
                 Process_Table[p->id].pid = pid;
             }
-            timeToStop = getClk() + Process_Table[p->id].executionTime;
+            timeToStop = getClk() + Process_Table[p->id].burstTime;
 
             //Context_Switching_To_Run(p->id);
             /* Not Finished Yet */
@@ -444,22 +379,11 @@ void SRTN(void)
 }
 
 void updateInformation() {
-    /* Update information for the currently running process */
-    if (*total_number_of_received_process == 0)
-    {
-        printf("No received processes yet!\n");
-        return;
-    }
-
-    // printf("DEBUGGING: { \nClock Now: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), Process_Table[*total_number_of_received_process-1].pid, Process_Table[*total_number_of_received_process-1].arrivalTime);
-
-    Process_Table[*current_process_id].cumulativeRunningTime += 1;
-    Process_Table[*current_process_id].remainingTime = *shmRemainingtime;
 
     /* Update information for the waiting processes */
-    for(int i = 0; i < *total_number_of_received_process; i++)
+    for(int i = 1; i < *total_number_of_received_process; i++)
     {
-        if (i == *current_process_id)
+        if (i == *current_process_id || Process_Table[i].id == idleProcess.id) 
             continue;
 
         Process_Table[i].waitingTime += 1;
@@ -470,7 +394,7 @@ void updateInformation() {
 //write_in_logfile
 void write_in_logfile_start()
 {
-    fprintf(logFile, "At  time  %i  process  %i  started  arr  %i  total  %i  remain  %i  wait  %i\n", 
+    fprintf(logFile, "At  time  %i  process  %i  started  arr  %i  total  %i  remain  %i  wait  %i\n",
         running->running_start_time,
         running->id,
         running->arrivalTime,
@@ -482,19 +406,19 @@ void write_in_logfile_start()
 
 void write_in_logfile_resume()
 {
-    fprintf(logFile, "At  time  %d  process  %i  resumed  arr  %d  total  %d  remain  %d  wait  %d\n", 
+    fprintf(logFile, "At  time  %d  process  %i  resumed  arr  %d  total  %d  remain  %d  wait  %d\n",
         running->running_start_time,
         running->id,
         running->arrivalTime,
         running->burstTime - running->remainingTime,    //to make sure ?!
         running->remainingTime,
-        running->waitingTime 
+        running->waitingTime
     );
 }
 
 void write_in_logfile_stopped()
 {
-    fprintf(logFile, "At  time  %i  process  %i  stopped  arr  %i  total  %i  remain  %i  wait  %i\n", 
+    fprintf(logFile, "At  time  %i  process  %i  stopped  arr  %i  total  %i  remain  %i  wait  %i\n",
         running->waiting_start_time,
         running->id,
         running->arrivalTime,
@@ -507,7 +431,7 @@ void write_in_logfile_stopped()
 void write_in_logfile_finished()
 {
     int clk = getClk();
-    fprintf(logFile, "At  time  %i  process  %i  finished  arr  %i  total  %i  remain  %i  wait  %i  TA  %i  WTA  %d\n", 
+    fprintf(logFile, "At  time  %i  process  %i  finished  arr  %i  total  %i  remain  %i  wait  %i  TA  %i  WTA  %d\n",
         clk,
         running->id,
         running->arrivalTime,
@@ -533,7 +457,7 @@ void ProcessTerminates(int signum)
     running = NULL;
     total_number_of_processes--;
     //to ask
-    //should we check on the total number of processes and if it equals 0 then terminate the scheduler 
+    //should we check on the total number of processes and if it equals 0 then terminate the scheduler
 
     signal(SIGCHLD, ProcessTerminates);
 }
@@ -553,13 +477,32 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
     Process_Table[msgbuf.id].id = msgbuf.id;
     Process_Table[msgbuf.id].waitingTime = msgbuf.waitingTime;
     Process_Table[msgbuf.id].remainingTime = msgbuf.remainingTime;
-    Process_Table[msgbuf.id].executionTime = msgbuf.executionTime;
+    Process_Table[msgbuf.id].burstTime = msgbuf.burstTime;
     Process_Table[msgbuf.id].priority = msgbuf.priority;
     Process_Table[msgbuf.id].cumulativeRunningTime = msgbuf.cumulativeRunningTime;
     Process_Table[msgbuf.id].waiting_start_time = msgbuf.waiting_start_time;
     Process_Table[msgbuf.id].running_start_time = msgbuf.running_start_time;
     Process_Table[msgbuf.id].arrivalTime = msgbuf.arrivalTime;
     Process_Table[msgbuf.id].state = msgbuf.state;
+
+    //enqueue in the readyQ
+
+
+    if (algorithm == HPF_ALGORITHM)
+        pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
+    else if (algorithm == SRTN_ALGORITHM) { /* WARNING: This needs change depends on the SRTN algorithm */
+        #if (WARNINGS == 1)
+        #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
+        #endif
+        pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].remainingTime);
+    }
+    else if (algorithm == RR_ALGORITHM) {
+        #if (WARNINGS == 1)
+        #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
+        #endif
+        pq_push(&readyQ, &Process_Table[msgbuf.id], 0);
+    }
+
 
     /* Parent is systemd, which means the process_generator is died! */
     if (getppid() == 1) {

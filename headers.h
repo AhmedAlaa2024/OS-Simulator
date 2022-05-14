@@ -53,7 +53,6 @@ typedef struct {
     int burstTime;
     int waitingTime;
     int remainingTime;
-    int executionTime;
     int priority; //(0 -> 10)
     int cumulativeRunningTime;
     int waiting_start_time; 
@@ -68,7 +67,7 @@ typedef struct {
  int id;
  int waitingTime;
  int remainingTime;
- int executionTime;
+ int burstTime;
  int priority; //(0 -> 10)
  int cumulativeRunningTime;
  int waiting_start_time; 

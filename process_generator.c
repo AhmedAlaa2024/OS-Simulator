@@ -18,29 +18,7 @@ int main(int argc, char * argv[])
     printf("(Process_generator): Debugging mode is ON!\n");
     #endif
 
-    int pid = fork();
-
-    if (pid == -1) // I can't fork
-    {
-        perror("Error in forking!\n");
-    }
-    else if (pid == 0) // I am a child
-    {
-        if( execl("./clk.out", "clk.out", NULL) == -1)
-            perror("Error in execl for clk forking\n");
-    }
-
-    pid = fork();
-
-    if (pid == -1) // I can't fork again
-    {
-        perror("Error in forking!\n");
-    }
-    else if (pid == 0) // I am an another child
-    {
-        if(execl("./scheduler.out", "scheduler.out", NULL) == -1)
-            perror("Error in execl for scheduler forking\n");
-    }
+    
 
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
@@ -61,8 +39,13 @@ int main(int argc, char * argv[])
     signal(SIGINT, clearResources);
     #endif
 
+
+
+
+
     /* TODO Initialization */
     // 1. Read the input files.
+    int tot_pnum = 0;
     int process[4];
     int i;
     FILE * pFile;
@@ -84,10 +67,65 @@ int main(int argc, char * argv[])
         printf("\n");
         const_p = Process_Constructor(process[0], process[1], process[2],process[3]);
         pq_push(&processQ, const_p, const_p->arrivalTime);
+        tot_pnum++;
     }
 
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
+    int clkPid;
+    int scdPid;
+    char algo[5];
+    char Quantum[7];
+    char c;
+
+    printf("Please, choose scheduling algorithm, enter:\n HPF\nRR\nSRTN\n");
+    scanf("%s", &algo);
+
+    if(algo == "HPF")  
+        c = '0';
+    else if(algo == "SRTN")
+        c = '1';
+    else if(algo == "RR")
+    {
+        c = '2';
+        printf("Please, enter Quantum");
+        scanf("%s", &Quantum);
+
+    }
+
+
+
     // 3. Initiate and create the scheduler and clock processes.
+
+    
+    clkPid = fork();
+
+    if (clkPid == -1) // I can't fork
+    {
+        perror("Error in forking!\n");
+    }
+    else if (clkPid == 0) // I am a child
+    {
+        if( execl("./clk.out", "clk.out", NULL) == -1)
+            perror("Error in execl for clk forking\n");
+    }
+
+
+    scdPid = fork();
+
+    if (scdPid == -1) // I can't fork again
+    {
+        perror("Error in forking!\n");
+    }
+    else if (scdPid == 0) // I am an another child
+    {
+        if(execl("./scheduler.out", "scheduler.out", tot_pnum, &c, &Quantum, NULL) == -1)
+            perror("Error in execl for scheduler forking\n");
+    }
+
+      
+    
+
+
     // 4. Use this function after creating the clock process to initialize clock
     initClk();
     // To get time use this
@@ -116,19 +154,19 @@ int main(int argc, char * argv[])
             msgbuf.id = ptr->id;
             msgbuf.waitingTime = ptr->waitingTime;
             msgbuf.remainingTime = ptr->remainingTime;
-            msgbuf.executionTime = ptr->executionTime;
+            msgbuf.burstTime = ptr->burstTime;
             msgbuf.priority = ptr->priority;
             msgbuf.cumulativeRunningTime = ptr->cumulativeRunningTime;
             msgbuf.waiting_start_time = ptr->waitingTime;
             msgbuf.running_start_time = ptr->running_start_time;
             msgbuf.arrivalTime = ptr->arrivalTime;
-            msgbuf.state = ptr->state;
+            msgbuf.state = READY;
             printf("Process_generator: I sent!\n");
             int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
             if (sendvalue == -1)
                 printf("Error in sending!\n");
             else {
-                kill(pid, SIGUSR1);
+                kill(scdPid, SIGUSR1);
                 printf("I killed my child!\n");
             }
         }

@@ -6,13 +6,16 @@ int * shmaddr;                 //
 int shmid;                     //
 //===============================
 
-Process* Process_Constructor(int id, int arrivaltime, int executiontime,int priority)
+Process* Process_Constructor(int id, int arrivaltime, int burstTime,int priority)
 {
     Process* p = (Process*) malloc(sizeof(Process));
     p->id = id;
     p->arrivalTime = arrivaltime;
-    p->executionTime = executiontime;
+    p->burstTime = burstTime;
     p->priority = priority;
+    p->cumulativeRunningTime = 0;
+    p->waiting_start_time = 0;
+    p->waitingTime = 0;
     return p;
 }
 
