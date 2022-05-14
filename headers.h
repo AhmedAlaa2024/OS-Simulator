@@ -36,7 +36,8 @@ typedef short bool;
 
 typedef enum {
     RUNNING = 0,
-    WAITING = 1
+    WAITING = 1,
+    READY = 2  //mean that the process hasn't run yet on the cpu before
 } State;
 
 typedef enum {

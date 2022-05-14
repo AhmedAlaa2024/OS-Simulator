@@ -70,6 +70,7 @@ int main(int argc, char * argv[])
     int parameter;
     Process* const_p; 
     PriorityQueue processQ;
+    
 
     pFile = fopen("processes.txt", "r");
     while(fgets(line, LINE_SIZE, pFile) != NULL){

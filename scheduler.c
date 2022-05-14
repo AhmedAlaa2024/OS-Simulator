@@ -12,6 +12,7 @@ int remainingtime;
 int* shmRemainingtime;
 int* current_process_id;
 int* total_number_of_received_process;
+int* total_number_of_processes;
 
 bool process_generator_finished = false;
 
@@ -23,6 +24,9 @@ int shmid2;
 
 key_t key3;
 int shmid3;
+
+key_t key4;
+int shmid4;
 
 int msg_id;
 MsgBuf msgbuf;
@@ -59,13 +63,6 @@ void SRTN(void);
 
 void updateInformation();
 
-void Context_Switching_To_Run(int Entry_Number);
-void Context_Switching_To_Wait(int Entry_Number);
-void Context_Switching_To_Start(int Entry_Number);
-
-void Terminate_Process(int Entry_Number);
-void checkProcessArrival(void);
-
 void handler_notify_scheduler_new_process_has_arrived(int signum);
 
 int main(int argc, char * argv[])
@@ -93,17 +90,22 @@ int main(int argc, char * argv[])
         exit(-1);
     }
 
-    key_t key1 = ftok("key.txt" ,77);
-    int shmid1 = shmget(key1, 512 * 1024, IPC_CREAT | 0666); // We allocated 512 KB
+    key1 = ftok("key.txt" ,77);
+    shmid1 = shmget(key1, 512 * 1024, IPC_CREAT | 0666); // We allocated 512 KB
     Process_Table = (Process*) shmat(shmid1, NULL, 0);
 
-    key_t key2 = ftok("key.txt" ,78);
-    int shmid2 = shmget(key2, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
+    key2 = ftok("key.txt" ,78);
+    shmid2 = shmget(key2, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
     total_number_of_received_process = (int*) shmat(shmid2, NULL, 0);
 
-    key_t key3 = ftok("key.txt" ,79);
-    int shmid3 = shmget(key3, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
+    key3 = ftok("key.txt" ,79);
+    shmid3 = shmget(key3, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
     current_process_id = (int*) shmat(shmid3, NULL, 0);
+
+    key4 = ftok("key.txt" ,80);
+    shmid4 = shmget(key4, sizeof(int), IPC_CREAT | 0666);
+    
+
 
     int pid;
 
@@ -139,12 +141,20 @@ int parent(void)
     }
 
     running = (Process*)shmat(shmid, (void *)0, 0);
-    if (shmRemainingtime == -1)
+    if (!running)
     {
         perror("Error in attach in scheduler");
         exit(-1);
     }
     
+
+    total_number_of_processes = (int*) shmat(shmid4, NULL, 0);
+    if (*total_number_of_processes == -1)
+    {
+        perror("Error in attach in scheduler");
+        exit(-1);
+    }
+
 
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
@@ -222,16 +232,16 @@ int parent(void)
 
 int child(void)
 {
-    key_t key1 = ftok("key.txt" ,77);
-    int shmid1 = shmget(key1, 512 * 1024, IPC_CREAT | 0666); // We allocated 512 KB
+    key1 = ftok("key.txt" ,77);
+    shmid1 = shmget(key1, 512 * 1024, IPC_CREAT | 0666); // We allocated 512 KB
     Process_Table = (Process*) shmat(shmid1, NULL, 0);
 
-    key_t key2 = ftok("key.txt" ,78);   
-    int shmid2 = shmget(key2, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
+    key2 = ftok("key.txt" ,78);   
+    shmid2 = shmget(key2, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
     total_number_of_received_process = (int*) shmat(shmid2, NULL, 0);
 
-    key_t key3 = ftok("key.txt" ,79);
-    int shmid3 = shmget(key3, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
+    key3 = ftok("key.txt" ,79);
+    shmid3 = shmget(key3, sizeof(int), IPC_CREAT | 0666); // We allocated 8 Bytes
     current_process_id = (int*) shmat(shmid3, NULL, 0);
 
     /* Super Loop to keep track the clock */
@@ -261,88 +271,87 @@ int child(void)
     }
 }
 
+//from the parent we will run each scheduler each clock cycle
 void RR(int quantum)
 {
     int pid, pr;
     int clk = getClk();
-    int timeToStop;
+    //int timeToStop;
     int currentQuantum = quantum;
-    //loop on the ready  q
-    while(1){
-        while(!pq_isEmpty(&readyQ))
+
+    while(total_number_of_processes)
+    {
+        if(running)
         {
-            //if there exist a process that is already running
-            if(running)
-            {
-                if(clk != getClk())
-                {
-                    currentQuantum--;
-                    clk = getClk();
-                    if(currentQuantum == 0)
-                    {
-                        //then block this process
-                        
-                        //kill()
-                    }
-                }
-                    
-            }
-            else
-            {
+            currentQuantum--;
+            running->remainingTime = *shmRemainingtime;
+            running->cumulativeRunningTime++;
+            running->running_start_time = getClk();
 
-            }
-            //checkProcessArrival();
-
-            Process* p = pq_pop(&readyQ);
-            
-            if(p->executionTime == p->remainingTime)
+            if(currentQuantum == 0)
             {
-                //meaning that it is the first time to be fun on the cpu
-                pid = fork();
-                if(pid == -1) perror("Error in fork!!");
-                if(pid == 0)
+                running->state = WAITING;
+                //update also the state in the process table
+                Process_Table[running->id].state = WAITING;
+
+                //send signal stop to this process and insert it back in the ready queue
+                running->waiting_start_time = getClk();
+                kill(running->pid, SIGTSTP);
+                pq_push(&readyQ, running, 0);
+
+                write_in_logfile_stopped();
+
+                running = NULL;
+            }
+        }
+        else{
+            if(pq_peek(&readyQ))
+            {
+                running = pq_pop(&readyQ);
+                *current_process_id = running->id;
+                currentQuantum = quantum;
+                if(running->state == READY)
                 {
-                    pr = execl("./process.out", "process.out", (char*) NULL);
-                    if(pr == -1)
+                    //meaning that it is the first time to be fun on the cpu
+                    //inintialize the remaining time
+                    *shmRemainingtime = running->burstTime;
+                    pid = fork();
+                    if(pid == -1) perror("Error in fork!!");
+                    if(pid == 0)
                     {
-                        perror("Error in the process fork!\n");
-                        exit(0);
+                        pr = execl("./process.out", "process.out", (char*) NULL);
+                        if(pr == -1)
+                        {
+                            perror("Error in the process fork!\n");
+                            exit(0);
+                        }
                     }
-                }
-                else
-                {
                     //put it in the Process
-                    Process_Table[p->id].pid = pid;
+                    running->pid = pid;
+                    running->state = RUNNING;
+                    running->running_start_time = getClk();
+                    Process_Table[running->id].pid = pid;
+
+                    write_in_logfile_start();
                 }
-                
-                
+                else{
+                    //wake it up
+                    kill(running->pid, SIGCONT); //TO ASK
+                    running->state = RUNNING;
+                    running->running_start_time = getClk();
+                    running->remainingTime = *shmRemainingtime;
+
+                    write_in_logfile_resume();
+                }
             }
+            
 
-            Context_Switching_To_Run(p->id);
-
-            clk = Process_Table[p->id].running_start_time;
-
-            timeToStop = clk + quantum;
-
-            if(Process_Table[p->id].remainingTime <= quantum)
-            {
-                timeToStop = clk + Process_Table[p->id].remainingTime;
-                //then run it to completion then remove from the system ---> but the schedular doesn't terminate a process --> what should i do ?
-                while(getClk() != timeToStop);
-
-                //terminate the process
-
-            }
-            else{
-                while(timeToStop);
-                Context_Switching_To_Wait(p->id);
-                //push it again in the readyQ
-                pq_push(&readyQ, p, p->priority);
-            }
-            //give it its parameters
         }
 
+        while(clk == getClk());
+        clk = getClk();
     }
+
 
 }
 
@@ -356,7 +365,7 @@ void HPF(void)
     for(;;) // Super Loop
     {
         while(!pq_isEmpty(&readyQ)) {
-            checkProcessArrival();
+            //checkProcessArrival();
 
             Process* p = pq_pop(&readyQ);
 
@@ -379,7 +388,7 @@ void HPF(void)
             }
             timeToStop = getClk() + Process_Table[p->id].executionTime;
 
-            Context_Switching_To_Run(p->id);
+            //Context_Switching_To_Run(p->id);
             /* Not Finished Yet */
         }
     }
@@ -405,7 +414,7 @@ void SRTN(void)
                 if(peek >= current->remainingTime) continue;
 
             //switch:
-                Context_Switching_To_Wait(current->id);
+                //Context_Switching_To_Wait(current->id);
             }
             current = pq_pop(&readyQ);
 
@@ -426,7 +435,7 @@ void SRTN(void)
                 Process_Table[current->id].pid = pid;
             }
 
-            Context_Switching_To_Start(current->id);
+            //Context_Switching_To_Start(current->id);
 
         }
         //when terminates --> set current to NULL.
@@ -445,7 +454,7 @@ void updateInformation() {
     // printf("DEBUGGING: { \nClock Now: %d,\nProcess ID: %d,\nArrival Time: %d\n}\n", getClk(), Process_Table[*total_number_of_received_process-1].pid, Process_Table[*total_number_of_received_process-1].arrivalTime);
 
     Process_Table[*current_process_id].cumulativeRunningTime += 1;
-    Process_Table[*current_process_id].remainingTime -= 1;
+    Process_Table[*current_process_id].remainingTime = *shmRemainingtime;
 
     /* Update information for the waiting processes */
     for(int i = 0; i < *total_number_of_received_process; i++)
@@ -457,123 +466,75 @@ void updateInformation() {
     }
 }
 
-void Context_Switching_To_Run(int Entry_Number)
+
+//write_in_logfile
+void write_in_logfile_start()
 {
-    int Process_id = Process_Table[Entry_Number].id;
-    Process_Table[Entry_Number].state = RUNNING;
-    Process_Table[Entry_Number].waitingTime += (getClk()-(Process_Table[Entry_Number].waiting_start_time));
-    Process_Table[Entry_Number].running_start_time = getClk(); 
+    fprintf(logFile, "At  time  %i  process  %i  started  arr  %i  total  %i  remain  %i  wait  %i\n", 
+        running->running_start_time,
+        running->id,
+        running->arrivalTime,
+        running->burstTime - running->remainingTime,    //to make sure ?!
+        running->remainingTime,
+        running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
+    );
+}
+
+void write_in_logfile_resume()
+{
     fprintf(logFile, "At  time  %d  process  %i  resumed  arr  %d  total  %d  remain  %d  wait  %d\n", 
-        Process_Table[Entry_Number].running_start_time,
-        Entry_Number,
-        Process_Table[Entry_Number].arrivalTime,
-        Process_Table[Entry_Number].executionTime,    //to make sure ?!
-        Process_Table[Entry_Number].remainingTime,
-        Process_Table[Entry_Number].waitingTime 
-    );
-    kill(Process_id,SIGCONT); //continue the stopped process
-}
-
-void Context_Switching_To_Wait(int Entry_Number)
-{
-    int Process_id = Process_Table[Entry_Number].id;
-    Process_Table[Entry_Number].state = WAITING;
-    Process_Table[Entry_Number].remainingTime-=(getClk()-(Process_Table[Entry_Number].running_start_time));
-    Process_Table[Entry_Number].waiting_start_time=getClk();
-    fprintf(logFile, "At  time  %d  process  %i  stopped  arr  %d  total  %d  remain  %d  wait  %d\n", 
-        Process_Table[Entry_Number].running_start_time,
-        Entry_Number,
-        Process_Table[Entry_Number].arrivalTime,
-        Process_Table[Entry_Number].executionTime,    //to make sure ?!
-        Process_Table[Entry_Number].remainingTime,
-        Process_Table[Entry_Number].waitingTime 
-    );
-    kill(Process_id,SIGSTOP); //stopping it to the waiting state
-}
-
-void Context_Switching_To_Start(int Entry_Number)
-{
-    int pid = fork();
-    if(pid == -1)
-    {
-        perror("error in fork\n");
-        exit(0);
-    }
-    //put it in the Process
-    Process_Table[Entry_Number].id = pid;
-    int Process_id = Process_Table[Entry_Number].id;
-    Process_Table[Entry_Number].state = RUNNING;
-    Process_Table[Entry_Number].waitingTime +=(getClk()-(Process_Table[Entry_Number].waiting_start_time));
-    Process_Table[Entry_Number].running_start_time=getClk();
-
-    fprintf(logFile, "At  time  %d  process  %i  started  arr  %d  total  %d  remain  %d  wait  %d\n", 
-        Process_Table[Entry_Number].running_start_time,
-        Entry_Number,
-        Process_Table[Entry_Number].arrivalTime,
-        Process_Table[Entry_Number].executionTime,    //to make sure ?!
-        Process_Table[Entry_Number].remainingTime,
-        Process_Table[Entry_Number].waitingTime 
-    );
-}
-//rufaida-> why terminate???
-void Terminate_Process(int Entry_Number)
-{
-    int Process_id = Process_Table[Entry_Number].id;
-    free(Process_Table + Entry_Number);
-
-    int clk = getClk(); 
-
-    fprintf(logFile, "At  time  %d  process  %i  finished  arr  %d  total  %d  remain  %d  wait  %d  TA  %d  WTA  %d\n", 
-        clk,         //to make sure
-        Entry_Number,
-        Process_Table[Entry_Number].arrivalTime,
-        Process_Table[Entry_Number].executionTime,    //to make sure ?!
-        Process_Table[Entry_Number].remainingTime,
-        Process_Table[Entry_Number].waitingTime,
-        clk - Process_Table[Entry_Number].arrivalTime,
-        (clk - Process_Table[Entry_Number].arrivalTime) / Process_Table[Entry_Number].executionTime
+        running->running_start_time,
+        running->id,
+        running->arrivalTime,
+        running->burstTime - running->remainingTime,    //to make sure ?!
+        running->remainingTime,
+        running->waitingTime 
     );
 }
 
-void checkProcessArrival()
+void write_in_logfile_stopped()
 {
-    //to implement --> IPC
-    //hint --> we have to give this comming process an id = num_of_nodes in the readyQ
-    //the id in the readyQ will be from 0 --> total_num_of_processes - 1
-    //which differ from the id in the Process --> which will be the id returned from forking
-
-    //Process_Table[Entry_Number].arrivalTime,
+    fprintf(logFile, "At  time  %i  process  %i  stopped  arr  %i  total  %i  remain  %i  wait  %i\n", 
+        running->waiting_start_time,
+        running->id,
+        running->arrivalTime,
+        running->burstTime - running->remainingTime,    //to make sure ?!
+        running->remainingTime,
+        running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
+    );
 }
+
+void write_in_logfile_finished()
+{
+    int clk = getClk();
+    fprintf(logFile, "At  time  %i  process  %i  finished  arr  %i  total  %i  remain  %i  wait  %i  TA  %i  WTA  %d\n", 
+        clk,
+        running->id,
+        running->arrivalTime,
+        running->burstTime - running->remainingTime,    //to make sure ?!
+        running->remainingTime,
+        running->waitingTime ,  //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
+
+        clk - running->arrivalTime,  //finish - arrival
+        (float)(clk - running->arrivalTime) / running->burstTime  //to ask (float)
+    );
+}
+
 
 //handler_notify_scheduler_I_terminated
 void ProcessTerminates(int signum)
 {
     //TODO
     //implement what the scheduler should do when it gets notifies that a process is finished
-
-    int Entry_Number = running->id;
-    int clk = getClk();
-    float TA = clk - Process_Table[Entry_Number].arrivalTime;
-    float WTA = TA / running->burstTime;
-    //print the information in the logfile
-    fprintf(logFile, "At  time  %d  process  %i  finished  arr  %d  total  %d  remain  %d  wait  %d  TA  %d  WTA  %d\n",
-        clk,         //to make sure
-        Entry_Number,
-        Process_Table[Entry_Number].arrivalTime,
-        Process_Table[Entry_Number].executionTime,    //to make sure ?!
-        Process_Table[Entry_Number].remainingTime,
-        Process_Table[Entry_Number].waitingTime,
-        clk - Process_Table[Entry_Number].arrivalTime,
-        (clk - Process_Table[Entry_Number].arrivalTime) / Process_Table[Entry_Number].executionTime,
-        TA,  //finish - arrival
-        WTA
-
-    );
-
+    write_in_logfile_finished();
     //scheduler should delete its data from the process table
     free(Process_Table + running->id);
     //call the function Terminate_Process
     running = NULL;
+    total_number_of_processes--;
+    //to ask
+    //should we check on the total number of processes and if it equals 0 then terminate the scheduler 
+
     signal(SIGCHLD, ProcessTerminates);
 }
 
