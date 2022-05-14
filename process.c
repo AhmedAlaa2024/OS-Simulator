@@ -12,7 +12,7 @@ int main(int agrc, char * argv[])
 
     key_id = ftok("key", 65);
 
-    shmid = shmget(key_id, 256, IPC_CREAT | 0644);
+    shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0644);
 
     if (shmid == -1)
     {
