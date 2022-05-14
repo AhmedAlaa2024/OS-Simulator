@@ -70,6 +70,8 @@ int main(int argc, char * argv[])
         tot_pnum++;
     }
 
+
+
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
     int clkPid;
     int scdPid;
@@ -161,7 +163,7 @@ int main(int argc, char * argv[])
                 printf("Error in sending!\n");
             else {
                 kill(scdPid, SIGUSR1);
-                printf("I killed my child!\n");
+                printf("I send signal to my child scheduler!\n");
             }
         }
     }

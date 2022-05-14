@@ -17,6 +17,23 @@ int total_number_of_processes;
 
 bool process_generator_finished = false;
 
+
+
+int sem;
+
+union Semun semun;
+/* arg for semctl system calls. */
+union Semun
+{
+    int val;               /* value for SETVAL */
+    struct semid_ds *buf;  /* buffer for IPC_STAT & IPC_SET */
+    ushort *array;         /* array for GETALL & SETALL */
+    struct seminfo *__buf; /* buffer for IPC_INFO */
+    void *__pad;
+};
+
+
+
 key_t key1;
 int shmid1;
 
@@ -31,6 +48,7 @@ int shmid4;
 
 int msg_id;
 MsgBuf msgbuf;
+
 
 #if (WARNINGS == 1)
 #warning "Scheduler: Read the following notes carefully!"
@@ -55,33 +73,38 @@ MsgBuf msgbuf;
  so don't terminate.
 */
 
-int parent(void);
-int child(void);
 
 void RR(int quantum);
 void HPF(void);
 void SRTN(void);
 
+void down(int sem);
+void up(int sem);
+
+
 void updateInformation();
 
 void handler_notify_scheduler_new_process_has_arrived(int signum);
+
+void ProcessTerminates(int signum);
 
 int main(int argc, char * argv[])
 {
     initClk();
 
     int i, Q;
+    printf(argc);
     if(argc < 3) { perror("Too few CLA!!"); return -1;}
     switch (argv[2][1])
     {
-    case '0':
+    case '1':
         algorithm = HPF_ALGORITHM;
         break;
     
-    case '1':
+    case '2':
         algorithm = SRTN_ALGORITHM;
         break;
-    case '2':
+    case '3':
         algorithm = RR_ALGORITHM;
         if(argc < 4) { perror("Too few CLA!!"); return -1;}
         i = 0;
@@ -106,6 +129,16 @@ int main(int argc, char * argv[])
     if (shmid == -1)
     {
         perror("Error in create");
+        exit(-1);
+    }
+
+    //semaphore
+    key_id = ftok("keyfile", 66);
+    sem = semget(key_id, 1, 0666 | IPC_CREAT);
+    semun.val = 0; /* initial value of the semaphore, Binary semaphore */
+    if (semctl(sem, 0, SETVAL, semun) == -1)
+    {
+        perror("Error in semctl");
         exit(-1);
     }
 
@@ -219,6 +252,7 @@ void RR(int quantum)
         {
             *current_process_id = running->id;
             currentQuantum--;
+            down(sem);
             running->remainingTime = *shmRemainingtime;
             running->cumulativeRunningTime++;
             
@@ -274,6 +308,7 @@ void RR(int quantum)
                     kill(running->pid, SIGCONT); //TO ASK
                     running->state = RUNNING;
                     running->running_start_time = getClk();
+                    down(sem);
                     *shmRemainingtime = running->remainingTime;
                     write_in_logfile_resume();
                 }
@@ -285,6 +320,15 @@ void RR(int quantum)
 
         while(clk == getClk());
         clk = getClk();
+
+
+        // semun.val = 0; /* initial value of the semaphore, Binary semaphore */
+        // if (semctl(sem, 0, SETVAL, semun) == -1)
+        // {
+        //     perror("Error in semctl");
+        //     exit(-1);
+        // }
+
     }
 
 
@@ -294,41 +338,51 @@ void RR(int quantum)
 void HPF(void)
 {
     int pid;
-    int timeToStop;
+    int clk=getClk();
     int pr;
 
-    for(;;) // Super Loop
+    while(total_number_of_processes)
     {
-        while(!pq_isEmpty(&readyQ)) {
-            //checkProcessArrival();
-
-            Process* p = pq_pop(&readyQ);
-
-            //meaning that it is the first time to be fun on the cpu
-            pid = fork();
-            if(pid == -1) perror("Error in fork!!");
-            if(pid == 0)
-            {
-                pr = execl("./process.out", "process.out", (char*) NULL);
-                if(pr == -1)
-                {
-                    perror("Error in the process fork!\n");
-                    exit(0);
-                }
-            }
-            else
-            {
-                //put it in the Process
-                Process_Table[p->id].pid = pid;
-            }
-            timeToStop = getClk() + Process_Table[p->id].burstTime;
-
-            //Context_Switching_To_Run(p->id);
-            /* Not Finished Yet */
+        if(running){
+        *current_process_id=running->id;
+        running->remainingTime=*shmRemainingtime;
+        running->cumulativeRunningTime++;
+        
         }
+        else{
+            if(pq_peek(&readyQ))
+            {
+                running=pq_pop(&readyQ);
+                *current_process_id=running->id;
+
+                running->cumulativeRunningTime++;
+                *shmRemainingtime = running->burstTime;
+                pid = fork();
+                if(pid == -1) perror("Error in fork");
+                if(pid ==0)
+                {
+                    pr=execl("./process.out","process.out",(char*)NULL);
+                    if(pr == -1)
+                    {
+                        perror("Error in the process fork");
+                        exit(0);
+                    }
+                }
+                running->pid=pid;
+                running->state=RUNNING;
+                running->running_start_time=getClk();
+                
+
+                write_in_logfile_start();
+                
+            }
+        }
+        updateInformation();
+
+        while(clk == getClk());
+        clk=getClk();
     }
 }
-
 void SRTN(void)
 {
     int clk = -1;
@@ -456,7 +510,8 @@ void ProcessTerminates(int signum)
     //implement what the scheduler should do when it gets notifies that a process is finished
     write_in_logfile_finished();
     //scheduler should delete its data from the process table
-    free(Process_Table + running->id);
+    Process_Table[running->id] = idleProcess;
+    //free(Process_Table + running->id);
     //call the function Terminate_Process
     running = NULL;
     total_number_of_processes--;
@@ -516,4 +571,37 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
     }
 
     signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
+}
+
+
+
+
+void down(int sem)
+{
+    struct sembuf p_op;
+
+    p_op.sem_num = 0;
+    p_op.sem_op = -1;
+    p_op.sem_flg = !IPC_NOWAIT;
+
+    if (semop(sem, &p_op, 1) == -1)
+    {
+        perror("Error in down()");
+        exit(-1);
+    }
+}
+
+void up(int sem)
+{
+    struct sembuf v_op;
+
+    v_op.sem_num = 0;
+    v_op.sem_op = 1;
+    v_op.sem_flg = !IPC_NOWAIT;
+
+    if (semop(sem, &v_op, 1) == -1)
+    {
+        perror("Error in up()");
+        exit(-1);
+    }
 }
