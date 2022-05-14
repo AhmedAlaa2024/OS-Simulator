@@ -37,7 +37,7 @@ typedef short bool;
 typedef enum {
     RUNNING = 0,
     WAITING = 1,
-    READY = 2
+    READY = 2  //mean that the process hasn't run yet on the cpu before
 } State;
 
 typedef enum {
@@ -50,9 +50,9 @@ typedef struct {
     //int state; //running 0 , waiting 1
     int id;
     int pid;
+    int burstTime;
     int waitingTime;
     int remainingTime;
-    int executionTime;
     int priority; //(0 -> 10)
     int cumulativeRunningTime;
     int waiting_start_time; 
@@ -67,7 +67,7 @@ typedef struct {
  int id;
  int waitingTime;
  int remainingTime;
- int executionTime;
+ int burstTime;
  int priority; //(0 -> 10)
  int cumulativeRunningTime;
  int waiting_start_time; 
@@ -95,4 +95,5 @@ void initClk();
  *                      It terminates the whole system and releases resources.
 */
 void destroyClk(bool terminateAll);
+int get_shmid(void);
 #endif
