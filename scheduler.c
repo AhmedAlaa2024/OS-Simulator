@@ -341,8 +341,9 @@ void SRTN(void)
         {
             clk = getClk();
 
-            //check if arrived.
+            
             if(pq_isEmpty(&readyQ))continue;
+
             if(current != NULL)
             {
                 peek = pq_peek(&readyQ)->remainingTime;
@@ -353,28 +354,31 @@ void SRTN(void)
             }
             current = pq_pop(&readyQ);
 
-            pid = fork();
-            if(pid == -1) perror("Error in fork!!");
-            if(pid == 0)
+            if(current->state == READY)
             {
-                pr = execl("./process.out", "process.out", (char*) NULL);
-                if(pr == -1)
+                pid = fork();
+                if(pid == -1) perror("Error in fork!!");
+                if(pid == 0)
                 {
-                    perror("Error in the process fork!\n");
-                    exit(0);
+                    pr = execl("./process.out", "process.out", (char*) NULL);
+                    if(pr == -1)
+                    {
+                        perror("Error in the process fork!\n");
+                        exit(0);
+                    }
                 }
-            }
-            else
-            {
+
                 //put it in the Process
                 Process_Table[current->id].pid = pid;
             }
+
+
 
             //Context_Switching_To_Start(current->id);
 
         }
         //when terminates --> set current to NULL.
-    } while (1);
+    } while (total_number_of_processes);
 
 }
 

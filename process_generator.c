@@ -73,20 +73,14 @@ int main(int argc, char * argv[])
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
     int clkPid;
     int scdPid;
-    char algo[5];
-    char Quantum[7];
-    char c;
+    char algo;
+    char Quantum;
 
-    printf("Please, choose scheduling algorithm, enter:\n HPF\nRR\nSRTN\n");
-    scanf("%s", &algo);
+    printf("Please, choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR");
+    scanf("%c", &algo);
 
-    if(algo == "HPF")  
-        c = '0';
-    else if(algo == "SRTN")
-        c = '1';
-    else if(algo == "RR")
+    if(algo == '3')
     {
-        c = '2';
         printf("Please, enter Quantum");
         scanf("%s", &Quantum);
 
@@ -118,7 +112,7 @@ int main(int argc, char * argv[])
     }
     else if (scdPid == 0) // I am an another child
     {
-        if(execl("./scheduler.out", "scheduler.out", tot_pnum, &c, &Quantum, NULL) == -1)
+        if(execl("./scheduler.out", "scheduler.out", tot_pnum, &algo, &Quantum, NULL) == -1)
             perror("Error in execl for scheduler forking\n");
     }
 
