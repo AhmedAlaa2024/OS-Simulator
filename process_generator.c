@@ -1,6 +1,8 @@
 #include "headers.h"
 #include "priority_queue.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #define LINE_SIZE 300
 
 int msg_id;
@@ -76,18 +78,20 @@ int main(int argc, char * argv[])
     int clkPid;
     int scdPid;
     char algo;
-    char Quantum;
+    char Quantum = '\0';
+    char pNum[7];
 
-    printf("Please, choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR");
+    sprintf(pNum, "%d", tot_pnum);
+
+    printf("Please, choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR\n");
     scanf("%c", &algo);
 
     if(algo == '3')
     {
-        printf("Please, enter Quantum");
+        printf("Please, enter Quantum\n");
         scanf("%s", &Quantum);
 
     }
-
 
 
     // 3. Initiate and create the scheduler and clock processes.
@@ -114,7 +118,7 @@ int main(int argc, char * argv[])
     }
     else if (scdPid == 0) // I am an another child
     {
-        if(execl("./scheduler.out", "scheduler.out", tot_pnum, &algo, &Quantum, NULL) == -1)
+        if(execl("./scheduler.out", "scheduler.out", &pNum, &algo, &Quantum, (char *) NULL) == -1)
             perror("Error in execl for scheduler forking\n");
     }
 

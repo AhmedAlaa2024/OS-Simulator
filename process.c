@@ -47,7 +47,7 @@ int main(int agrc, char * argv[])
     }
 
 
-    int clk = getclk();
+    int clk = getClk();
     shmRemainingtime = (int*)shmat(shmid, (void *)0, 0);
     if (shmRemainingtime == -1)
     {

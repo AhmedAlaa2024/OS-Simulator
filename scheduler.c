@@ -94,7 +94,7 @@ int main(int argc, char * argv[])
 
     int i, Q;
     printf(argc);
-    if(argc < 3) { perror("Too few CLA!!"); return -1;}
+    if(argc < 3) { perror("Too few cmd-line args!!"); return -1;}
     switch (argv[2][1])
     {
     case '1':
@@ -106,7 +106,7 @@ int main(int argc, char * argv[])
         break;
     case '3':
         algorithm = RR_ALGORITHM;
-        if(argc < 4) { perror("Too few CLA!!"); return -1;}
+        if(argc < 4) { perror("Too few cmd-line args!!"); return -1;}
         i = 0;
         Q = 0;
         while(argv[3][i])
@@ -146,7 +146,7 @@ int main(int argc, char * argv[])
 
     total_number_of_processes = atoi(argv[1]);
 
-    Process_Table = malloc(sizeof(Process)* (atoi(argv[1]) + 1));
+    Process_Table = malloc(sizeof(Process) * (atoi(argv[1]) + 1));
 
 
    signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
@@ -388,27 +388,60 @@ void SRTN(void)
     int clk = -1;
     int peek;
     int pid, pr;
-    Process* current = NULL;
     do
     {
+        *current_process_id = running->id;
+            
+
         if(getClk() != clk)
         {
             clk = getClk();
-
             
-            if(pq_isEmpty(&readyQ))continue;
 
-            if(current != NULL)
+            if(running != NULL)
             {
+                running->cumulativeRunningTime++;
+
+                if(pq_isEmpty(&readyQ))
+                {
+                    updateInformation();
+                    continue;
+                }
+                
+                down(sem);
+                running->remainingTime = *shmRemainingtime;
+
                 peek = pq_peek(&readyQ)->remainingTime;
-                if(peek >= current->remainingTime) continue;
 
-            //switch:
-                //Context_Switching_To_Wait(current->id);
+                if(peek >= running->remainingTime)
+                {
+                    updateInformation();
+                    continue;
+                }
+
+                //switch:
+
+                running->state = WAITING;
+                //send signal stop to this process and insert it back in the ready queue
+                running->waiting_start_time = getClk();
+                kill(running->pid, SIGTSTP);
+                pq_push(&readyQ, running, running->remainingTime);
+
+                write_in_logfile_stopped();
+
+                running = NULL;
             }
-            current = pq_pop(&readyQ);
+            if(running == NULL)
+            {
+                if(pq_isEmpty(&readyQ))
+                {
+                    updateInformation();
+                    continue;
+                }
+                running = pq_pop(&readyQ);
+            }
 
-            if(current->state == READY)
+            if(running->state == READY)
             {
                 pid = fork();
                 if(pid == -1) perror("Error in fork!!");
@@ -421,18 +454,31 @@ void SRTN(void)
                         exit(0);
                     }
                 }
+                running->state = RUNNING;
+                running->running_start_time = getClk();
+                down(sem);
+                *shmRemainingtime = running->remainingTime;
 
-                //put it in the Process
-                Process_Table[current->id].pid = pid;
+                running->pid = pid;
+
+                write_in_logfile_start();
+
             }
-
-
-
-            //Context_Switching_To_Start(current->id);
-
+            if(running->state == WAITING)
+            {
+                kill(running->pid, SIGCONT);
+                running->state = RUNNING;
+                running->running_start_time = getClk();
+                down(sem);
+                *shmRemainingtime = running->remainingTime;
+                write_in_logfile_resume();
+            }
+            down(sem);
+            *current_process_id = running->id;
+            updateInformation();
         }
-        //when terminates --> set current to NULL.
-    } while (total_number_of_processes);
+
+    } while (1);
 
 }
 
