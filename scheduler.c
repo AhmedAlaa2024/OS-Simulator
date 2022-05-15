@@ -2,6 +2,13 @@
 #include "priority_queue.h"
 #include <string.h>
 
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <signal.h>
+#include <stdlib.h>
+
+
 FILE* logFile, *perfFile;
 ALGORITHM algorithm;
 PriorityQueue readyQ;
@@ -237,7 +244,9 @@ void RR(int quantum)
 
     while(total_number_of_processes)
     {
-        printf("\ni am here \n");
+        printf("\ni am here -------------------------------------\n");
+
+        //printf("\ni am here \n");
         if(running)
         {
             current_process_id = running->id;
@@ -253,17 +262,21 @@ void RR(int quantum)
 
                 //send signal stop to this process and insert it back in the ready queue
                 running->waiting_start_time = getClk();
+                down(sem);
                 kill(running->pid, SIGTSTP);
                 pq_push(&readyQ, running, 0);
 
                 write_in_logfile_stopped();
-
+                
                 running = NULL;
+                printf("\ni am here after blocking a process--------------------------------------\n");
             }
         }
         else{
+            printf("\ni am here -------------------------------------\n");
             if(pq_peek(&readyQ))
             {
+                printf("\ni am here -------------------------------------\n");
                 running = pq_pop(&readyQ);
                 current_process_id = running->id;
                 
@@ -307,10 +320,17 @@ void RR(int quantum)
 
 
         }
-        updateInformation();
 
-        while(clk == getClk());
+        printf("\ni am here before update-------------------------------------\n");
+        updateInformation();
+        printf("\ni am here afger updete-------------------------------------\n");
+        printf("\nclk = %d   getclk = %d\n", clk, getClk());
+        while(clk == getClk()){
+            //printf("\n i am inside the while\n");
+        }
+        printf("\ni am outside the while\n");
         clk = getClk();
+        printf("\ni am here after clk-------------------------------------\n");
 
 
         // semun.val = 0; /* initial value of the semaphore, Binary semaphore */
@@ -669,6 +689,9 @@ void down(int sem)
         perror("Error in down()");
         exit(-1);
     }
+    else{
+        printf("\n--------------success in down------\n");
+    }
 }
 
 void up(int sem)
@@ -683,5 +706,8 @@ void up(int sem)
     {
         perror("Error in up()");
         exit(-1);
+    }
+    else{
+        printf("\n--------------success in up------\n");
     }
 }

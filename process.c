@@ -19,12 +19,13 @@ union Semun
 };
 void down(int sem);
 void up(int sem);
-
+void handler_SIGTSTP(int);
 
 int main(int agrc, char * argv[])
 {
     initClk();
     key_t key_id;
+    //signal(SIGTSTP, handler_SIGTSTP);
 
     key_id = ftok("key", 65);
     shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0666);
@@ -84,6 +85,12 @@ int main(int agrc, char * argv[])
     return 0;
 }
 
+void handler_SIGTSTP(int signum)
+{
+
+    
+    signal(SIGTSTP, handler_SIGTSTP);
+}
 
 
 
