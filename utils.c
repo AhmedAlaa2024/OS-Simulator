@@ -16,6 +16,7 @@ Process* Process_Constructor(int id, int arrivaltime, int burstTime,int priority
     p->cumulativeRunningTime = 0;
     p->waiting_start_time = 0;
     p->waitingTime = 0;
+    p->remainingTime = burstTime;
     return p;
 }
 
