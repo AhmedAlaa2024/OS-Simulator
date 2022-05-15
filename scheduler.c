@@ -234,7 +234,7 @@ int main(int argc, char * argv[])
 
     fclose(logFile);
     destroyClk(true);
-
+    // return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -249,8 +249,12 @@ void RR(int quantum)
     //int timeToStop;
     int currentQuantum = quantum;
     //handler_notify_scheduler_new_process_has_arrived(0);
-    while(1)
+    while(total_number_of_processes+1)
     {
+        printf("###############################################################\n");
+        printf("Total Number of processes until now: %d\n", pq_getLength(&readyQ));
+        printf("###############################################################\n");
+
         handler_notify_scheduler_new_process_has_arrived(0);
         //printf("\ni am here -------------------------------------\n");
 
@@ -284,7 +288,6 @@ void RR(int quantum)
 
                 //termination occur ??
 
-                printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
                 write_in_logfile_stopped();
                 
                 running = NULL;
@@ -334,7 +337,6 @@ void RR(int quantum)
                     //down(sem);
                     //*shmRemainingtime = running->remainingTime;
                     currentQuantum--;
-                    printf("##########################################\n");
                     write_in_logfile_resume();
                 }
             }
@@ -368,19 +370,31 @@ void RR(int quantum)
 void HPF(void)
 {
     int pid;
-    int clk=getClk();
+    int clk = getClk();
     int pr;
+
+    running = NULL;
 
     while(total_number_of_processes)
     {
+
+        handler_notify_scheduler_new_process_has_arrived(0);
+
+        printf("###############################################################\n");
+        printf("ReadyQ length until now: %d\n", pq_getLength(&readyQ));
+        printf("###############################################################\n");
+
+        printf("###############################################################\n");
+        printf("Total Number of received process until now: %d\n", total_number_of_received_process);
+        printf("###############################################################\n");
+
         if(running){
         current_process_id=running->id;
         running->remainingTime=*shmRemainingtime;
         running->cumulativeRunningTime++;
-        
         }
         else{
-            if(pq_peek(&readyQ))
+            if(!pq_isEmpty(&readyQ))
             {
                 running=pq_pop(&readyQ);
                 current_process_id=running->id;
@@ -633,6 +647,7 @@ void ProcessTerminates(int signum)
     printf("\n a process terminates\n");
     //TODO
     //implement what the scheduler should do when it gets notifies that a process is finished
+    running->remainingTime = *shmRemainingtime;
     write_in_logfile_finished();
     //scheduler should delete its data from the process table
     Process_Table[current_process_id] = idleProcess;
@@ -678,7 +693,7 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
 
         //enqueue in the readyQ
 
-        pq_push(&readyQ, &Process_Table[msgbuf.id], 0);
+        // pq_push(&readyQ, &Process_Table[msgbuf.id], 0);
 
         //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
         

@@ -40,6 +40,7 @@ void pq_push(PriorityQueue *pq, T data, int priority) {
 
     if(pq_isEmpty(pq)) {
         pq->Head = temp;
+        (pq->num_of_nodes)++;
         return;
     }
 
@@ -64,6 +65,11 @@ void pq_push(PriorityQueue *pq, T data, int priority) {
 /* Chech if the list is empty */
 bool pq_isEmpty(PriorityQueue* pq) {
     return (pq->Head == NULL);
+}
+
+int pq_getLength(PriorityQueue* pq)
+{
+    return pq->num_of_nodes;
 }
 
 /* Print the priority queue in order to trace its elements */
