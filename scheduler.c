@@ -111,14 +111,19 @@ int main(int argc, char * argv[])
 
 
 
-    total_number_of_processes = atoi(argv[1]);
+    total_number_of_processes = 0;
+    i = 0;
+    while(argv[1][i])
+            total_number_of_processes = total_number_of_processes * 10 + (argv[1][i++] - '0');
 
 
-    Process_Table = malloc(sizeof(Process)* (atoi(argv[1]) + 1));
+    Process_Table = malloc(sizeof(Process)* (total_number_of_processes + 1));
 
+
+   
 
     //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
-    signal(SIGCHLD, ProcessTerminates);
+    //signal(SIGCHLD, ProcessTerminates);
  
 
     idleProcess.id = 0;
@@ -180,7 +185,7 @@ int main(int argc, char * argv[])
     
     if(argc < 3) { perror("Too few CLA!!"); return -1;}
 
-    switch (argv[2][1])
+    switch (argv[2][0])
     {
     case '1':
         algorithm = 0;//HPF_ALGORITHM;
@@ -194,11 +199,13 @@ int main(int argc, char * argv[])
         if(argc < 4) { perror("Too few CLA!!"); return -1;}
         i = 0;
         Q = 0;
-        Q = atoi(argv[3]);
-    break;
-    default:
-    perror("undefined algorithm");
-    return -1;
+        while(argv[3][i])
+            Q = Q * 10 + (argv[3][i++] - '0');
+        printf("\nquantum: %d\n", Q);
+        break;
+        default:
+        perror("undefined algorithm");
+        return -1;
     }
 
     logFile = fopen("Scheduler.log", "w");
@@ -245,7 +252,7 @@ void RR(int quantum)
     while(1)
     {
         handler_notify_scheduler_new_process_has_arrived(0);
-        printf("\ni am here -------------------------------------\n");
+        //printf("\ni am here -------------------------------------\n");
 
         //printf("\ni am here \n");
         if(running)
@@ -264,28 +271,43 @@ void RR(int quantum)
                 //send signal stop to this process and insert it back in the ready queue
                 running->waiting_start_time = getClk();
                 //down(sem);
-                printf("\n------------------------------------------ready to stop\n");
-                //sleep(9);
+
                 kill(running->pid, SIGSTOP);
 
                 running->remainingTime = *shmRemainingtime;
+
+                //termination occur ??
+                if(running->remainingTime == 0)
+                {
+                    //implement what the scheduler should do when it gets notifies that a process is finished
+                    write_in_logfile_finished();
+                    //scheduler should delete its data from the process table
+                    Process_Table[current_process_id] = idleProcess;
+                    //free(Process_Table + running->id);
+                    //call the function Terminate_Process
+                    running = NULL;
+                    total_number_of_processes--;
+
+                    continue;
+                }
                 pq_push(&readyQ, running, 0);
+
+                //termination occur ??
 
                 
                 write_in_logfile_stopped();
                 
                 running = NULL;
-                printf("\ni am here after blocking a process--------------------------------------\n");
+                //printf("\ni am here after blocking a process--------------------------------------\n");
             }
         }
         else{
-            printf("\ni am here -------------------------------------\n");
+            //printf("\ni am here -------------------------------------\n");
             if(pq_peek(&readyQ))
             {
-                printf("\ni am here -------------------------------------\n");
+                //printf("\ni am here -------------------------------------\n");
                 running = pq_pop(&readyQ);
                 current_process_id = running->id;
-                
                 
                 currentQuantum = quantum;
                 running->cumulativeRunningTime++;
@@ -329,16 +351,16 @@ void RR(int quantum)
 
         }
 
-        printf("\ni am here before update-------------------------------------\n");
+        //printf("\ni am here before update-------------------------------------\n");
         updateInformation();
-        printf("\ni am here afger updete-------------------------------------\n");
+        //printf("\ni am here afger updete-------------------------------------\n");
         printf("\nclk = %d   getclk = %d\n", clk, getClk());
         while(clk == getClk()){
             //printf("\n i am inside the while\n");
         }
-        printf("\ni am outside the while\n");
+        //printf("\ni am outside the while\n");
         clk = getClk();
-        printf("\ni am here after clk-------------------------------------\n");
+        //printf("\ni am here after clk-------------------------------------\n");
 
 
         // semun.val = 0; /* initial value of the semaphore, Binary semaphore */

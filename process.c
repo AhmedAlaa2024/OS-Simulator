@@ -19,13 +19,12 @@ union Semun
 };
 void down(int sem);
 void up(int sem);
-void handler_SIGTSTP(int);
 
 int main(int agrc, char * argv[])
 {
+    //signal(SIGCONT, SIG_IGN);
     initClk();
     key_t key_id;
-    //signal(SIGTSTP, handler_SIGTSTP);
 
     key_id = ftok("key", 65);
     shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0666);
@@ -38,14 +37,14 @@ int main(int agrc, char * argv[])
 
 
     //semaphore
-    key_id = ftok("key", 55);
-    sem = semget(key_id, 1, 0666 | IPC_CREAT);
-    semun.val = 0; /* initial value of the semaphore, Binary semaphore */
-    if (semctl(sem, 0, SETVAL, semun) == -1)
-    {
-        perror("Error in semctl");
-        exit(-1);
-    }
+    // key_id = ftok("key", 55);
+    // sem = semget(key_id, 1, 0666 | IPC_CREAT);
+    // semun.val = 0; /* initial value of the semaphore, Binary semaphore */
+    // if (semctl(sem, 0, SETVAL, semun) == -1)
+    // {
+    //     perror("Error in semctl");
+    //     exit(-1);
+    // }
 
 
     int clk = getClk();
@@ -84,14 +83,7 @@ int main(int agrc, char * argv[])
 
     //signal(getppid(), SIGCHLD);
     
-    return 0;
-}
-
-void handler_SIGTSTP(int signum)
-{
-
-    
-    //signal(SIGTSTP, handler_SIGTSTP);
+    //return 0;
 }
 
 
