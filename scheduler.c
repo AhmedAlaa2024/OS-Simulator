@@ -117,7 +117,7 @@ int main(int argc, char * argv[])
     Process_Table = malloc(sizeof(Process)* (atoi(argv[1]) + 1));
 
 
-    signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
+    //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
     signal(SIGCHLD, ProcessTerminates);
  
 
@@ -241,9 +241,10 @@ void RR(int quantum)
     int clk = getClk();
     //int timeToStop;
     int currentQuantum = quantum;
-
-    while(total_number_of_processes)
+    //handler_notify_scheduler_new_process_has_arrived(0);
+    while(1)
     {
+        handler_notify_scheduler_new_process_has_arrived(0);
         printf("\ni am here -------------------------------------\n");
 
         //printf("\ni am here \n");
@@ -251,8 +252,8 @@ void RR(int quantum)
         {
             current_process_id = running->id;
             currentQuantum--;
-            down(sem);
-            (*running).remainingTime = *shmRemainingtime;
+            //down(sem);
+            //(*running).remainingTime = *shmRemainingtime;
             running->cumulativeRunningTime++;
             
 
@@ -262,10 +263,15 @@ void RR(int quantum)
 
                 //send signal stop to this process and insert it back in the ready queue
                 running->waiting_start_time = getClk();
-                down(sem);
-                kill(running->pid, SIGTSTP);
+                //down(sem);
+                printf("\n------------------------------------------ready to stop\n");
+                //sleep(9);
+                kill(running->pid, SIGSTOP);
+
+                running->remainingTime = *shmRemainingtime;
                 pq_push(&readyQ, running, 0);
 
+                
                 write_in_logfile_stopped();
                 
                 running = NULL;
@@ -279,6 +285,7 @@ void RR(int quantum)
                 printf("\ni am here -------------------------------------\n");
                 running = pq_pop(&readyQ);
                 current_process_id = running->id;
+                
                 
                 currentQuantum = quantum;
                 running->cumulativeRunningTime++;
@@ -308,11 +315,12 @@ void RR(int quantum)
                 }
                 else{
                     //wake it up
+                    *shmRemainingtime = running->remainingTime;
                     kill(running->pid, SIGCONT); //TO ASK
                     running->state = RUNNING;
                     running->running_start_time = getClk();
-                    down(sem);
-                    *shmRemainingtime = running->remainingTime;
+                    //down(sem);
+                    //*shmRemainingtime = running->remainingTime;
                     currentQuantum--;
                     write_in_logfile_resume();
                 }
@@ -392,7 +400,7 @@ void HPF(void)
 
         while(clk == getClk());
         clk=getClk();
-        signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
+        //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
     }
 }
 void SRTN(void)
@@ -578,7 +586,7 @@ void write_in_logfile_finished()
         clk,
         running->id,
         running->arrivalTime,
-        running->burstTime - running->remainingTime,    //to make sure ?!
+        running->burstTime,    //to make sure ?!
         running->remainingTime,
         running->waitingTime ,  //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
 
@@ -589,7 +597,7 @@ void write_in_logfile_finished()
         clk,
         running->id,
         running->arrivalTime,
-        running->burstTime - running->remainingTime,    //to make sure ?!
+        running->burstTime,    //to make sure ?!
         running->remainingTime,
         running->waitingTime ,  //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
 
@@ -602,11 +610,12 @@ void write_in_logfile_finished()
 //handler_notify_scheduler_I_terminated
 void ProcessTerminates(int signum)
 {
+    printf("\n a process terminates\n");
     //TODO
     //implement what the scheduler should do when it gets notifies that a process is finished
     write_in_logfile_finished();
     //scheduler should delete its data from the process table
-    Process_Table[running->id] = idleProcess;
+    Process_Table[current_process_id] = idleProcess;
     //free(Process_Table + running->id);
     //call the function Terminate_Process
     running = NULL;
@@ -614,63 +623,72 @@ void ProcessTerminates(int signum)
     //to ask
     //should we check on the total number of processes and if it equals 0 then terminate the scheduler
 
+    printf("\n after process terminates-------------------------\n");
+
     signal(SIGCHLD, ProcessTerminates);
 }
 
 
 void handler_notify_scheduler_new_process_has_arrived(int signum)
 {
-    printf("\nScehduler: I received!\n");
-    fflush(0);
-    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, !(IPC_NOWAIT));
-    #if (NOTIFICATION == 1)
-    printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
-    #endif
-
-    total_number_of_received_process += 1;
-
-    Process_Table[msgbuf.id].id = msgbuf.id;
-    Process_Table[msgbuf.id].waitingTime = msgbuf.waitingTime;
-    Process_Table[msgbuf.id].remainingTime = msgbuf.remainingTime;
-    Process_Table[msgbuf.id].burstTime = msgbuf.burstTime;
-    Process_Table[msgbuf.id].priority = msgbuf.priority;
-    Process_Table[msgbuf.id].cumulativeRunningTime = msgbuf.cumulativeRunningTime;
-    Process_Table[msgbuf.id].waiting_start_time = msgbuf.waiting_start_time;
-    Process_Table[msgbuf.id].running_start_time = msgbuf.running_start_time;
-    Process_Table[msgbuf.id].arrivalTime = msgbuf.arrivalTime;
-    Process_Table[msgbuf.id].state = msgbuf.state;
-
-    //enqueue in the readyQ
-
-    pq_push(&readyQ, &Process_Table[msgbuf.id], 0);
-
-    signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
     
-    if (algorithm == 0)
-        pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
-    else if (algorithm == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
-        #if (WARNINGS == 1)
-        #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-        #endif
-        pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].remainingTime);
-    }
-    else if (algorithm == 2) {
-        #if (WARNINGS == 1)
-        #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-        #endif
-        printf("i am pushing here \n");
-        pq_push(&readyQ, &Process_Table[msgbuf.id], 0);
-    }
+    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, (IPC_NOWAIT));
+    printf("\nreceiveValue : %d \n", receiveValue);
+    
 
-
-    /* Parent is systemd, which means the process_generator is died! */
-    if (getppid() == 1) {
-        printf("My father is died!\n");
+    if(receiveValue != -1)
+    {
+        printf("\nScehduler: I received!\n");
         fflush(0);
-        process_generator_finished = true;
-    }
+        #if (NOTIFICATION == 1)
+        printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
+        #endif
+        total_number_of_received_process += 1;
 
-    signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
+        Process_Table[msgbuf.id].id = msgbuf.id;
+        Process_Table[msgbuf.id].waitingTime = msgbuf.waitingTime;
+        Process_Table[msgbuf.id].remainingTime = msgbuf.remainingTime;
+        Process_Table[msgbuf.id].burstTime = msgbuf.burstTime;
+        Process_Table[msgbuf.id].priority = msgbuf.priority;
+        Process_Table[msgbuf.id].cumulativeRunningTime = msgbuf.cumulativeRunningTime;
+        Process_Table[msgbuf.id].waiting_start_time = msgbuf.waiting_start_time;
+        Process_Table[msgbuf.id].running_start_time = msgbuf.running_start_time;
+        Process_Table[msgbuf.id].arrivalTime = msgbuf.arrivalTime;
+        Process_Table[msgbuf.id].state = msgbuf.state;
+
+        //enqueue in the readyQ
+
+        pq_push(&readyQ, &Process_Table[msgbuf.id], 0);
+
+        //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
+        
+        if (algorithm == 0)
+            pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
+        else if (algorithm == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
+            #if (WARNINGS == 1)
+            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
+            #endif
+            pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].remainingTime);
+        }
+        else if (algorithm == 2) {
+            #if (WARNINGS == 1)
+            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
+            #endif
+            printf("i am pushing here \n");
+            pq_push(&readyQ, &Process_Table[msgbuf.id], 0);
+        }
+
+
+        /* Parent is systemd, which means the process_generator is died! */
+        if (getppid() == 1) {
+            printf("My father is died!\n");
+            fflush(0);
+            process_generator_finished = true;
+        }
+    }
+    
+
+    //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
 }
 
 
