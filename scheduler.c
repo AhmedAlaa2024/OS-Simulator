@@ -165,8 +165,6 @@ int main(int argc, char * argv[])
 
 
 
-
-    total_number_of_received_process = 0;
     current_process_id = 0;
     
     printf("\nscheduler id is  : %d\n",getpid());
