@@ -167,14 +167,14 @@ int main(int argc, char * argv[])
             msgbuf.state = READY;
             printf("\nProcess_generator: I sent!\n");
             int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
-            if (sendvalue == -1)
-                printf("Error in sending!\n");
-            else {
-                int ifsent = kill(scdPid, SIGUSR1);
-                if(ifsent == 0)
-                    printf("child id : %d\n", scdPid);
-                    printf("I send signal to my child scheduler!\n");
-            }
+            // if (sendvalue == -1)
+            //     printf("Error in sending!\n");
+            // else {
+            //     int ifsent = kill(scdPid, SIGUSR1);
+            //     if(ifsent == 0)
+            //         printf("child id : %d\n", scdPid);
+            //         printf("I send signal to my child scheduler!\n");
+            // }
         }
     }
     

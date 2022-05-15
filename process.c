@@ -69,7 +69,7 @@ int main(int agrc, char * argv[])
             clk = getClk();
             
             *shmRemainingtime = remainingtime;
-            up(sem);
+            //up(sem);
         }
 
     }
@@ -81,6 +81,8 @@ int main(int agrc, char * argv[])
     // }
     
     destroyClk(false);
+
+    //signal(getppid(), SIGCHLD);
     
     return 0;
 }
@@ -89,7 +91,7 @@ void handler_SIGTSTP(int signum)
 {
 
     
-    signal(SIGTSTP, handler_SIGTSTP);
+    //signal(SIGTSTP, handler_SIGTSTP);
 }
 
 
