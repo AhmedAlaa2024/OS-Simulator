@@ -6,14 +6,13 @@
 int msg_id;
 
 void clearResources(int);
-void handler(int signum){
-    signal(SIGUSR1, handler);
-}
+// void handler(int signum){
+//     signal(SIGUSR1, handler);
+// }
 
 int main(int argc, char * argv[])
 {
-    signal(SIGUSR1, handler);
-    signal(SIGINT, clearResources);
+    
     #if (DEBUGGING == 1)
     printf("(Process_generator): Debugging mode is ON!\n");
     #endif
@@ -22,7 +21,7 @@ int main(int argc, char * argv[])
 
     /* Create a message buffer between process_generator and scheduler */
     key_t key = ftok("key.txt" ,66);
-    msg_id = msgget( key, (IPC_CREAT | 0660) );
+    msg_id = msgget(key, (IPC_CREAT | 0666) );
 
     if (msg_id == -1) {
         perror("Error in create!");
@@ -76,19 +75,23 @@ int main(int argc, char * argv[])
     int clkPid;
     int scdPid;
     char algo;
-    char Quantum;
+    char Quantum = '\0';
+    char pNum[7];
 
-    printf("Please, choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR");
+    sprintf(pNum, "%d", tot_pnum);
+
+    printf("Please, choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR\n");
     scanf("%c", &algo);
 
     if(algo == '3')
     {
-        printf("Please, enter Quantum");
+        printf("Please, enter Quantum\n");
         scanf("%s", &Quantum);
 
     }
 
-
+    //signal(SIGUSR1, handler);
+    signal(SIGINT, clearResources);
 
     // 3. Initiate and create the scheduler and clock processes.
 
@@ -114,16 +117,17 @@ int main(int argc, char * argv[])
     }
     else if (scdPid == 0) // I am an another child
     {
-        if(execl("./scheduler.out", "scheduler.out", tot_pnum, &algo, &Quantum, NULL) == -1)
+        if(execl("./scheduler.out", "scheduler.out", &pNum, &algo, &Quantum, (char *) NULL) == -1)
             perror("Error in execl for scheduler forking\n");
     }
 
+
       
-    
 
 
     // 4. Use this function after creating the clock process to initialize clock
     initClk();
+
     // To get time use this
     int x = getClk();
     #if (DEBUGGING == 1)
@@ -134,6 +138,8 @@ int main(int argc, char * argv[])
 
     // 6. Send the information to the scheduler at the appropriate time.
     
+    
+
     while(!pq_isEmpty(&processQ))
     {
         if(pq_peek(&processQ)->arrivalTime <= getClk()) {
@@ -157,19 +163,24 @@ int main(int argc, char * argv[])
             msgbuf.running_start_time = ptr->running_start_time;
             msgbuf.arrivalTime = ptr->arrivalTime;
             msgbuf.state = READY;
-            printf("Process_generator: I sent!\n");
+            printf("\nProcess_generator: I sent!\n");
             int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
             if (sendvalue == -1)
                 printf("Error in sending!\n");
             else {
-                kill(scdPid, SIGUSR1);
-                printf("I send signal to my child scheduler!\n");
+                int ifsent = kill(scdPid, SIGUSR1);
+                if(ifsent == 0)
+                    printf("child id : %d\n", scdPid);
+                    printf("I send signal to my child scheduler!\n");
             }
         }
     }
     
+
+    while(true);
     // 7. Clear clock resources
-    // destroyClk(true);
+    //shmctl(get_shmid(), IPC_RMID, (struct shmid_ds *)0);
+    //destroyClk(true);
 }
 
 void clearResources(int signum)
@@ -178,5 +189,6 @@ void clearResources(int signum)
     shmctl(get_shmid(), IPC_RMID, (struct shmid_ds *)0);
     msgctl(msg_id, IPC_RMID, (struct msqid_ds *)0);
     signal(SIGINT, clearResources);
+
     exit(0);
 }

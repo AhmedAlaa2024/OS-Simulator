@@ -27,7 +27,7 @@ int main(int agrc, char * argv[])
     key_t key_id;
 
     key_id = ftok("key", 65);
-    shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0644);
+    shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0666);
     if (shmid == -1)
     {
         perror("Error in create");
@@ -37,7 +37,7 @@ int main(int agrc, char * argv[])
 
 
     //semaphore
-    key_id = ftok("keyfile", 66);
+    key_id = ftok("key", 55);
     sem = semget(key_id, 1, 0666 | IPC_CREAT);
     semun.val = 0; /* initial value of the semaphore, Binary semaphore */
     if (semctl(sem, 0, SETVAL, semun) == -1)
@@ -47,15 +47,16 @@ int main(int agrc, char * argv[])
     }
 
 
-    int clk = getclk();
+    int clk = getClk();
     shmRemainingtime = (int*)shmat(shmid, (void *)0, 0);
-    if (shmRemainingtime == -1)
+    if (*shmRemainingtime == -1)
     {
         perror("Error in attach in process");
         exit(-1);
     }
 
     remainingtime = *shmRemainingtime;
+    printf("\nremaining time: %d\n", remainingtime);
 
     //TODO it needs to get the remaining time from somewhere
     //remainingtime = ??;
@@ -65,8 +66,9 @@ int main(int agrc, char * argv[])
         {
             remainingtime--;
             clk = getClk();
-            up(sem);
+            
             *shmRemainingtime = remainingtime;
+            up(sem);
         }
 
     }
