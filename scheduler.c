@@ -111,10 +111,13 @@ int main(int argc, char * argv[])
 
 
 
-    total_number_of_processes = atoi(argv[1]);
+    total_number_of_processes = 0;
+    i = 0;
+    while(argv[1][i])
+            Q = Q * 10 + (argv[3][i++] - '0');
 
 
-    Process_Table = malloc(sizeof(Process)* (atoi(argv[1]) + 1));
+    Process_Table = malloc(sizeof(Process)* (total_number_of_processes + 1));
 
 
     //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
@@ -166,12 +169,7 @@ int main(int argc, char * argv[])
     total_number_of_received_process = 0;
     current_process_id = 0;
     
-    // printf("scheduler id is  : %d\n",getpid());
-
-    // printf("argc: %d\n", argc);
-    // printf("argv[1]: %d\n", atoi(argv[1]));
-    // printf("argv[2]: %d\n", atoi(argv[2]));
-    // printf("argv[3]: %d\n", atoi(argv[3]));
+    printf("\nscheduler id is  : %d\n",getpid());
 
 
 
@@ -179,7 +177,7 @@ int main(int argc, char * argv[])
     
     if(argc < 3) { perror("Too few CLA!!"); return -1;}
 
-    switch (argv[2][1])
+    switch (argv[2][0])
     {
     case '1':
         algorithm = 0;//HPF_ALGORITHM;
@@ -193,7 +191,9 @@ int main(int argc, char * argv[])
         if(argc < 4) { perror("Too few CLA!!"); return -1;}
         i = 0;
         Q = 0;
-        Q = atoi(argv[3]);
+        while(argv[3][i])
+            Q = Q * 10 + (argv[3][i++] - '0');
+        printf("\nquantum: %d\n", Q);
     break;
     default:
     perror("undefined algorithm");

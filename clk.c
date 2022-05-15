@@ -42,7 +42,7 @@ int main(int argc, char * argv[])
     *shmaddr = clk; /* initialize shared memory */
     while (1)
     {  
-        printf("\nTime Now: %d", *shmaddr);
+        printf("Time Now: %d\n", *shmaddr);
         fflush(0);
         sleep(1);
         (*shmaddr)++;

@@ -72,7 +72,6 @@ int main(int argc, char * argv[])
     }
 
 
-
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
     int clkPid;
     int scdPid;
@@ -82,12 +81,12 @@ int main(int argc, char * argv[])
 
     sprintf(pNum, "%d", tot_pnum);
 
-    printf("Please, choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR\n");
+    printf("\nPlease, choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR\n");
     scanf("%c", &algo);
 
     if(algo == '3')
     {
-        printf("Please, enter Quantum\n");
+        printf("\nPlease, enter Quantum\n");
         scanf("%s", &Quantum);
 
     }
