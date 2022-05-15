@@ -81,9 +81,9 @@ int main(int agrc, char * argv[])
     
     destroyClk(false);
 
-    //signal(getppid(), SIGCHLD);
+    kill(getppid(), SIGUSR2);
     
-    //return 0;
+    return 0;
 }
 
 

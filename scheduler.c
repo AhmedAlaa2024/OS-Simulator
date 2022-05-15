@@ -108,8 +108,8 @@ int main(int argc, char * argv[])
 
     
     initClk();
-
-
+    
+    signal(SIGCHLD, SIG_IGN);
 
     total_number_of_processes = 0;
     i = 0;
@@ -123,7 +123,7 @@ int main(int argc, char * argv[])
    
 
     //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
-    //signal(SIGCHLD, ProcessTerminates);
+    signal(SIGUSR2, ProcessTerminates);
  
 
     idleProcess.id = 0;
@@ -278,23 +278,13 @@ void RR(int quantum)
 
                 //termination occur ??
                 if(running->remainingTime == 0)
-                {
-                    //implement what the scheduler should do when it gets notifies that a process is finished
-                    write_in_logfile_finished();
-                    //scheduler should delete its data from the process table
-                    Process_Table[current_process_id] = idleProcess;
-                    //free(Process_Table + running->id);
-                    //call the function Terminate_Process
-                    running = NULL;
-                    total_number_of_processes--;
-
                     continue;
-                }
+                
                 pq_push(&readyQ, running, 0);
 
                 //termination occur ??
 
-                
+                printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");
                 write_in_logfile_stopped();
                 
                 running = NULL;
@@ -344,6 +334,7 @@ void RR(int quantum)
                     //down(sem);
                     //*shmRemainingtime = running->remainingTime;
                     currentQuantum--;
+                    printf("##########################################\n");
                     write_in_logfile_resume();
                 }
             }
@@ -371,8 +362,6 @@ void RR(int quantum)
         // }
 
     }
-
-
 }
 
 /* Warning: Under development */
@@ -543,6 +532,7 @@ void write_in_logfile_start()
 {
     
     printf("process pid = %d , process id = %d\n", running->pid, running->id);
+    fflush(0);
     printf("At  time  %d  process  %d  started  arr  %d  total  %d  remain  %d  wait  %d\n",
         running->running_start_time,
         running->id,
@@ -551,6 +541,7 @@ void write_in_logfile_start()
         running->remainingTime,
         running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
     );
+    fflush(0);
     fprintf(logFile,"At  time  %i  process  %i  started  arr  %i  total  %i  remain  %i  wait  %i\n",
     (*running).running_start_time,
     (*running).id,
@@ -559,6 +550,7 @@ void write_in_logfile_start()
     (*running).remainingTime,
     (*running).waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
     );
+    fflush(0);
 }
 
 void write_in_logfile_resume()
@@ -571,6 +563,7 @@ void write_in_logfile_resume()
         running->remainingTime,
         running->waitingTime
     );
+    fflush(0);
     fprintf(logFile, "At  time  %i  process  %i  resumed  arr  %i  total  %i  remain  %i  wait  %i\n",
         running->running_start_time,
         running->id,
@@ -579,6 +572,7 @@ void write_in_logfile_resume()
         running->remainingTime,
         running->waitingTime
     );
+    fflush(0);
 }
 
 void write_in_logfile_stopped()
@@ -591,6 +585,7 @@ void write_in_logfile_stopped()
         running->remainingTime,
         running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
     );
+    fflush(0);
     fprintf(logFile, "At  time  %i  process  %i  stopped  arr  %i  total  %i  remain  %i  wait  %i\n",
         running->waiting_start_time,
         running->id,
@@ -599,6 +594,7 @@ void write_in_logfile_stopped()
         running->remainingTime,
         running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
     );
+    fflush(0);
 }
 
 void write_in_logfile_finished()
@@ -615,6 +611,7 @@ void write_in_logfile_finished()
         clk - running->arrivalTime,  //finish - arrival
         (float)(clk - running->arrivalTime) / running->burstTime  //to ask (float)
     );
+    fflush(0);
     fprintf(logFile, "At  time  %i  process  %i  finished  arr  %i  total  %i  remain  %i  wait  %i  TA  %i  WTA  %f\n",
         clk,
         running->id,
@@ -626,6 +623,7 @@ void write_in_logfile_finished()
         clk - running->arrivalTime,  //finish - arrival
         (float)(clk - running->arrivalTime) / running->burstTime  //to ask (float)
     );
+    fflush(0);
 }
 
 
@@ -647,7 +645,7 @@ void ProcessTerminates(int signum)
 
     printf("\n after process terminates-------------------------\n");
 
-    signal(SIGCHLD, ProcessTerminates);
+    signal(SIGUSR2, ProcessTerminates);
 }
 
 

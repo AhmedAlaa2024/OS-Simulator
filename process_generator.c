@@ -175,7 +175,6 @@ int main(int argc, char * argv[])
             // }
         }
     }
-    
 
     while(true);
     // 7. Clear clock resources
