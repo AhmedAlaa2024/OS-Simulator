@@ -45,13 +45,13 @@ void pq_push(PriorityQueue *pq, T data, int priority) {
     }
 
     /* Special Case: The new node has a greater priority than the head (low-priority number means high priority) */
-    if (priority < walker->priority) {
+    if (priority <= walker->priority) {
         temp->next = walker;
         pq->Head = temp;
     }
     else {
         /* Traverse until you find the suitable position (low-priority number means high priority) */
-        while ((walker->next != NULL) && (walker->next->priority < priority))
+        while ((walker->next != NULL) && (walker->next->priority <= priority))
             walker = walker->next;
 
         /* Found the suitable position */
