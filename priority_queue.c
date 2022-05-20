@@ -40,17 +40,18 @@ void pq_push(PriorityQueue *pq, T data, int priority) {
 
     if(pq_isEmpty(pq)) {
         pq->Head = temp;
+        (pq->num_of_nodes)++;
         return;
     }
 
     /* Special Case: The new node has a greater priority than the head (low-priority number means high priority) */
-    if (priority < walker->priority) {
+    if (priority <= walker->priority) {
         temp->next = walker;
         pq->Head = temp;
     }
     else {
         /* Traverse until you find the suitable position (low-priority number means high priority) */
-        while ((walker->next != NULL) && (walker->next->priority < priority))
+        while ((walker->next != NULL) && (walker->next->priority <= priority))
             walker = walker->next;
 
         /* Found the suitable position */
@@ -64,6 +65,11 @@ void pq_push(PriorityQueue *pq, T data, int priority) {
 /* Chech if the list is empty */
 bool pq_isEmpty(PriorityQueue* pq) {
     return (pq->Head == NULL);
+}
+
+int pq_getLength(PriorityQueue* pq)
+{
+    return pq->num_of_nodes;
 }
 
 /* Print the priority queue in order to trace its elements */

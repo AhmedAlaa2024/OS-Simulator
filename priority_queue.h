@@ -43,6 +43,9 @@ void pq_push(PriorityQueue *pq, T data, int priority);
 /* Chech if the list is empty */
 bool pq_isEmpty(PriorityQueue* pq);
 
+/* Get the number of elements */
+int pq_getLength(PriorityQueue* pq);
+
 /* Print the priority queue in order to trace its elements */
 // void pq_print(PriorityQueue* pq);
 #endif

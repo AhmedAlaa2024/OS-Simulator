@@ -19,15 +19,14 @@ union Semun
 };
 void down(int sem);
 void up(int sem);
-void handler_SIGTSTP(int);
 
 int main(int agrc, char * argv[])
 {
+    //signal(SIGCONT, SIG_IGN);
     initClk();
     key_t key_id;
-    //signal(SIGTSTP, handler_SIGTSTP);
 
-    key_id = ftok("key", 65);
+    key_id = ftok("key.txt", 65);
     shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0666);
     if (shmid == -1)
     {
@@ -38,14 +37,14 @@ int main(int agrc, char * argv[])
 
 
     //semaphore
-    key_id = ftok("key", 55);
-    sem = semget(key_id, 1, 0666 | IPC_CREAT);
-    semun.val = 0; /* initial value of the semaphore, Binary semaphore */
-    if (semctl(sem, 0, SETVAL, semun) == -1)
-    {
-        perror("Error in semctl");
-        exit(-1);
-    }
+    // key_id = ftok("key", 55);
+    // sem = semget(key_id, 1, 0666 | IPC_CREAT);
+    // semun.val = 0; /* initial value of the semaphore, Binary semaphore */
+    // if (semctl(sem, 0, SETVAL, semun) == -1)
+    // {
+    //     perror("Error in semctl");
+    //     exit(-1);
+    // }
 
 
     int clk = getClk();
@@ -56,23 +55,28 @@ int main(int agrc, char * argv[])
         exit(-1);
     }
 
-    remainingtime = *shmRemainingtime;
-    printf("\nremaining time: %d\n", remainingtime);
+    //remainingtime = *shmRemainingtime;
+    //printf("\nremaining time: %d\n", remainingtime);
 
     //TODO it needs to get the remaining time from somewhere
     //remainingtime = ??;
-    while (remainingtime > 0)
-    {
-        if(clk != getClk())
-        {
-            remainingtime--;
-            clk = getClk();
+    // while (remainingtime > 0)
+    // {
+    //     if(clk != getClk())
+    //     {
+    //         remainingtime--;
+    //         clk = getClk();
             
-            *shmRemainingtime = remainingtime;
-            //up(sem);
-        }
+    //         *shmRemainingtime = remainingtime;
+    //         //up(sem);
+    //     }
 
-    }
+    // }
+
+
+    while(*shmRemainingtime > 0);
+
+    
     
     // if(remainingtime == 0)
     // {
@@ -80,18 +84,12 @@ int main(int agrc, char * argv[])
     //     kill(getppid(), SIGCHLD);
     // }
     
-    destroyClk(false);
+    
 
-    //signal(getppid(), SIGCHLD);
+    kill(getppid(), SIGUSR2);
+    destroyClk(false);
     
     return 0;
-}
-
-void handler_SIGTSTP(int signum)
-{
-
-    
-    //signal(SIGTSTP, handler_SIGTSTP);
 }
 
 
