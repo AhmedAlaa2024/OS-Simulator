@@ -256,6 +256,7 @@ void RR(int quantum)
     //int timeToStop;
     int currentQuantum = quantum;
     int remain_beg;
+    bool was_empty = false;
     //printf("----------the quantum %d\n", quantum);
     while(total_number_of_processes)
     {
@@ -383,6 +384,8 @@ void RR(int quantum)
                     write_in_logfile_resume();
                 }
             }
+            // else
+            //     was_empty = true;
 
 
         }
@@ -391,6 +394,10 @@ void RR(int quantum)
         updateInformation();
         printf("\nclk = %d   getclk = %d\n", clk, getClk());
         while(clk == getClk());  // && !pq_isEmpty(&readyQ) && running
+        // {
+        //     if(!pq_isEmpty(&readyQ) && was_empty)
+        //         break;
+        // }
         clk = getClk();
 
         
@@ -711,7 +718,7 @@ void ProcessTerminates(int signum)
 void handler_notify_scheduler_new_process_has_arrived(int signum)
 {
     
-    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, (IPC_NOWAIT));
+    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, !(IPC_NOWAIT));
     printf("\nreceiveValue : %d \n", receiveValue);
     
 

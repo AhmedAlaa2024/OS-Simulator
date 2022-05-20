@@ -157,7 +157,6 @@ int main(int argc, char * argv[])
 
             msgbuf.id = ptr->id;
             msgbuf.waitingTime = ptr->arrivalTime;
-            //msgbuf.waitingTime = (getClk() >= ptr->arrivalTime) ? (getClk() - ptr->arrivalTime) : 0;
             msgbuf.remainingTime = ptr->remainingTime;
             msgbuf.burstTime = ptr->burstTime;
             msgbuf.priority = ptr->priority;
