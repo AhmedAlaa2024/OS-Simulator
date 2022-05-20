@@ -133,7 +133,7 @@ int main(int argc, char * argv[])
     idleProcess.id = 0;
 
     //the remainging time of the current running process
-    key_id = ftok("key", 65);
+    key_id = ftok("key.txt", 65);
     shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0666);
     if (shmid == -1)
     {
@@ -143,8 +143,8 @@ int main(int argc, char * argv[])
     shmRemainingtime = (int*)shmat(shmid, (void *)0, 0);
     if (*shmRemainingtime == -1)
     {
-        perror("Error in attach in scheduler");
-        exit(-1);
+        perror("Error in attach in scheduler --------------");
+        //exit(-1);
     }
 
 
@@ -269,20 +269,35 @@ void RR(int quantum)
         //printf("\ni am here \n");
         if(running)
         {
+
             current_process_id = running->id;
+            
+            
+
+            if(running->remainingTime > 0)
+            {
+                running->remainingTime--;
+                *shmRemainingtime = running->remainingTime;
+            }
+
+            if(running->remainingTime == 0 )
+                continue;
+
             currentQuantum--;
-            //down(sem);
+            
             //(*running).remainingTime = *shmRemainingtime;
             running->cumulativeRunningTime++;
-            
+
             //to avoid stopping the process after ending the quantum if it is the only process in the system
             if(currentQuantum == 0 && pq_isEmpty(&readyQ))
             {
-                currentQuantum = quantum;
-                continue;
+                
+                currentQuantum = quantum ; //+1 as it will continue without loop on the clock to change
+                //continue;
             }
             
-            if(currentQuantum == 0)
+            
+            else if(currentQuantum == 0)
             {
                 
                 running->state = WAITING;
@@ -291,10 +306,10 @@ void RR(int quantum)
                 running->waiting_start_time = getClk();
                 //down(sem);
                 //while(running->remainingTime == *shmRemainingtime);
-                while(remain_beg - *shmRemainingtime == quantum);
+                //while(remain_beg - *shmRemainingtime == quantum);
                 kill(running->pid, SIGSTOP);
 
-                running->remainingTime = *shmRemainingtime;
+                //running->remainingTime = *shmRemainingtime;
 
                 //termination occur ??
                 
@@ -319,7 +334,7 @@ void RR(int quantum)
             if(pq_peek(&readyQ))
             {
                 //printf("\ni am here -------------------------------------\n");
-                if_termination = false;
+                //if_termination = false;
                 running = pq_pop(&readyQ);
                 current_process_id = running->id;
                 
@@ -355,6 +370,7 @@ void RR(int quantum)
                     //*shmRemainingtime = running->remainingTime;
                     printf("---------------------old remaining : %d\n", *shmRemainingtime);
                     remain_beg = running->remainingTime;
+                    *shmRemainingtime = running->remainingTime;
                     kill(running->pid, SIGCONT); //TO ASK
                     printf("---------------------new remaining : %d\n", *shmRemainingtime);
                     running->remainingTime == *shmRemainingtime;
@@ -376,6 +392,7 @@ void RR(int quantum)
         while(clk == getClk());  // && !pq_isEmpty(&readyQ) && running
         clk = getClk();
 
+        
 
         // semun.val = 0; /* initial value of the semaphore, Binary semaphore */
         // if (semctl(sem, 0, SETVAL, semun) == -1)

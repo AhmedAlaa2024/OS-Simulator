@@ -26,7 +26,7 @@ int main(int agrc, char * argv[])
     initClk();
     key_t key_id;
 
-    key_id = ftok("key", 65);
+    key_id = ftok("key.txt", 65);
     shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0666);
     if (shmid == -1)
     {
@@ -55,23 +55,28 @@ int main(int agrc, char * argv[])
         exit(-1);
     }
 
-    remainingtime = *shmRemainingtime;
-    printf("\nremaining time: %d\n", remainingtime);
+    //remainingtime = *shmRemainingtime;
+    //printf("\nremaining time: %d\n", remainingtime);
 
     //TODO it needs to get the remaining time from somewhere
     //remainingtime = ??;
-    while (remainingtime > 0)
-    {
-        if(clk != getClk())
-        {
-            remainingtime--;
-            clk = getClk();
+    // while (remainingtime > 0)
+    // {
+    //     if(clk != getClk())
+    //     {
+    //         remainingtime--;
+    //         clk = getClk();
             
-            *shmRemainingtime = remainingtime;
-            //up(sem);
-        }
+    //         *shmRemainingtime = remainingtime;
+    //         //up(sem);
+    //     }
 
-    }
+    // }
+
+
+    while(*shmRemainingtime > 0);
+
+    
     
     // if(remainingtime == 0)
     // {
@@ -79,9 +84,10 @@ int main(int agrc, char * argv[])
     //     kill(getppid(), SIGCHLD);
     // }
     
-    destroyClk(false);
+    
 
     kill(getppid(), SIGUSR2);
+    destroyClk(false);
     
     return 0;
 }
