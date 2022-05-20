@@ -171,9 +171,6 @@ int main(int argc, char * argv[])
     
     printf("\nscheduler id is  : %d\n",getpid());
 
-
-
-    
     
     if(argc < 3) { perror("Too few CLA!!"); return -1;}
 
