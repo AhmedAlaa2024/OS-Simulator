@@ -257,7 +257,7 @@ void RR(int quantum)
     int currentQuantum = quantum;
     int remain_beg;
     //printf("----------the quantum %d\n", quantum);
-    while(total_number_of_processes+1)
+    while(total_number_of_processes)
     {
         printf("###############################################################\n");
         printf("Total Number of processes until now: %d\n", pq_getLength(&readyQ));
@@ -345,6 +345,7 @@ void RR(int quantum)
                     //meaning that it is the first time to be fun on the cpu
                     //inintialize the remaining time
                     *shmRemainingtime = running->burstTime;
+                    running->waitingTime = getClk() - running->arrivalTime;
                     pid = fork();
                     if(pid == -1) perror("Error in fork!!");
                     if(pid == 0)

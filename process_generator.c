@@ -55,6 +55,7 @@ int main(int argc, char * argv[])
     
 
     pFile = fopen("processes.txt", "r");
+
     while(fgets(line, LINE_SIZE, pFile) != NULL){
         
         if(line[0] == '#'){continue;}
@@ -65,7 +66,7 @@ int main(int argc, char * argv[])
             printf("%d\t", process[i]);
         printf("\n");
         const_p = Process_Constructor(process[0], process[1], process[2],process[3]);
-        pq_push(&processQ, const_p, const_p->arrivalTime);
+        pq_push(&processQ, const_p, const_p->id);
         tot_pnum++;
     }
 
@@ -142,6 +143,7 @@ int main(int argc, char * argv[])
 
     while(!pq_isEmpty(&processQ))
     {
+        int clk = getClk();
         if(pq_peek(&processQ)->arrivalTime <= getClk()) {
             #if(DEBUGGING == 1)
             int pid = pq_peek(&processQ)->id;
@@ -154,7 +156,8 @@ int main(int argc, char * argv[])
             Process *ptr = pq_pop(&processQ);
 
             msgbuf.id = ptr->id;
-            msgbuf.waitingTime = ptr->waitingTime;
+            msgbuf.waitingTime = ptr->arrivalTime;
+            //msgbuf.waitingTime = (getClk() >= ptr->arrivalTime) ? (getClk() - ptr->arrivalTime) : 0;
             msgbuf.remainingTime = ptr->remainingTime;
             msgbuf.burstTime = ptr->burstTime;
             msgbuf.priority = ptr->priority;
@@ -164,6 +167,7 @@ int main(int argc, char * argv[])
             msgbuf.arrivalTime = ptr->arrivalTime;
             msgbuf.state = READY;
             printf("\nProcess_generator: I sent!\n");
+
             int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
             if (sendvalue == -1)
                 printf("Error in sending!\n");
@@ -175,6 +179,8 @@ int main(int argc, char * argv[])
             }
 
         }
+        while(clk == getClk());
+        clk = getClk();
     }
 
     while(true);
