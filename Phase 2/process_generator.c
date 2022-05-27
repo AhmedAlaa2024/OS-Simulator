@@ -58,10 +58,10 @@ int main(int argc, char * argv[])
 
 
 
-    /* TODO Initialization */
+/* TODO Initialization */
     // 1. Read the input files.
     int tot_pnum = 0;
-    int process[4];
+    int process[5];
     int i;
     FILE * pFile;
     char* line = malloc(LINE_SIZE);
@@ -75,12 +75,12 @@ int main(int argc, char * argv[])
         
         if(line[0] == '#'){continue;}
         process[0] = strtol(strtok(line, "\t"), NULL, 10);
-        for (i = 1; i < 4; i++)
+        for (i = 1; i < 5; i++)
             process[i] = atoi(strtok(NULL, "\t"));
-        for (i = 0; i < 4; i++)
+        for (i = 0; i < 5; i++)
             printf("%d\t", process[i]);
         printf("\n");
-        const_p = Process_Constructor(process[0], process[1], process[2],process[3]);
+        const_p = Process_Constructor(process[0], process[1], process[2],process[3], process[4]);
         pq_push(&processQ, const_p, const_p->arrivalTime);
         tot_pnum++;
     }
