@@ -1,0 +1,128 @@
+void SRTN(void)
+{
+    printf("heeeeeeeeeeeeeeeeeeeeeeeere");
+    fflush(0);
+    int clk;
+    int peek;
+    int pid, pr;
+    while(total_number_of_processes)
+    {
+            if(running && running->remainingTime == 0)
+                    continue;
+            
+            if(running)
+            {
+                printf("\n running: %d\n", running->remainingTime);
+                current_process_id = running->id;
+
+                if(ifReceived && !pq_isEmpty(&readyQ))
+                {
+                    ifReceived = false;
+                    peek = pq_peek(&readyQ)->remainingTime;
+
+                    if(peek < running->remainingTime)
+                    {
+                    
+                    //switch:
+                  
+                    running->state = WAITING;
+                    //send signal stop to this process and insert it back in the ready queue
+                    running->waiting_start_time = getClk();
+                    kill(running->pid, SIGSTOP);
+                    pq_push(&readyQ, running, running->remainingTime);
+
+                    write_in_logfile_stopped();
+
+                    running = NULL;
+                    }
+
+                }
+
+            }
+             
+            if(running == NULL)
+            {
+                if(pq_isEmpty(&readyQ))
+                {
+                    
+                    total_CPU_idle_time++;
+                }
+                else
+                {
+                    if(ifReceived)
+                    ifReceived = false;
+                    running = pq_pop(&readyQ);
+                    current_process_id = running->id;
+                    *shmRemainingtime = running->remainingTime;
+                }
+
+            }
+            if(running)
+            {
+                 if(running->state == READY)
+                {
+                    pid = fork();
+                    if(pid == -1) perror("Error in fork!!");
+                    if(pid == 0)
+                    {
+                        pr = execl("./process.out", "process.out", (char*) NULL);
+                        if(pr == -1)
+                        {
+                            perror("Error in the process fork!\n");
+                            exit(0);
+                        }
+                    }
+                    
+                    running->state = RUNNING;
+                    running->running_start_time = getClk();
+                    
+                    
+
+                    running->pid = pid;
+                    current_process_id = running->id;
+
+                    write_in_logfile_start();
+
+                }
+                else if(running->state == WAITING)
+                {
+                    kill(running->pid, SIGCONT);
+                    running->state = RUNNING;
+                    running->running_start_time = getClk();
+                
+                    
+                    write_in_logfile_resume();
+                }
+
+                if(running->remainingTime > 0)
+                {
+                    running->cumulativeRunningTime++;
+                    running->remainingTime--;
+                    *shmRemainingtime = running->remainingTime;
+                }
+                
+                // if(running && running->remainingTime == 0)
+                //     continue;
+
+
+            }
+        //Label:
+            updateInformation();
+        while (clk == getClk())
+        {
+            if(ifReceived)
+            {
+                if(running && running->remainingTime > 0)
+                {
+                running->remainingTime++;
+                running->cumulativeRunningTime--;
+                *shmRemainingtime = running->remainingTime;
+                }
+
+                break;
+            }
+        }
+        clk = getClk();
+    } 
+
+}
