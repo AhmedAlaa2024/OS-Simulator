@@ -39,7 +39,7 @@ int main(int argc, char * argv[])
         perror("Error in attaching the shm in clock!");
         exit(-1);
     }
-    shmaddr = clk; / initialize shared memory */
+    shmaddr = clk; /* initialize shared memory */
     while (1)
     {  
         printf("\nTime Now: %d", *shmaddr);

@@ -120,7 +120,7 @@ void write_in_logfile_finished();
 Segment* mergeSegments(Segment* left, Segment* right);
 bool memoryInitialize();
 bool memoryAllocate(Process* process);
-bool memoryDeallocate(Process* process);
+bool memoryDeallocate(Segment* process, int id_of_category);
 bool memoryManage(bool isAllocating, Process* process);
 
 int total_CPU_idle_time=0;
@@ -786,9 +786,9 @@ void ProcessTerminates(int signum)
 
     PriorityQueue tempQ;
 
-    while(!pq_isEmpty(waitingQ))
+    while(!pq_isEmpty(&waitingQ))
     {
-        process = pq_pop(waitingQ);
+        process = pq_pop(&waitingQ);
         canBeAllocated = memoryManage(true, process);
 
         if (canBeAllocated)
@@ -807,12 +807,12 @@ void ProcessTerminates(int signum)
 
 
             if (algo == 0)
-                pq_push(&readyQ, &Process_Table[process.id], Process_Table[process.id].priority);
+                pq_push(&readyQ, &Process_Table[process->id], Process_Table[process->id].priority);
             else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
                 #if (WARNINGS == 1)
                 #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
                 #endif
-                pq_push(&readyQ, &Process_Table[process.id], Process_Table[process.id].remainingTime);
+                pq_push(&readyQ, &Process_Table[process->id], Process_Table[process->id].remainingTime);
             }
             else if (algo == 2) {
                 #if (WARNINGS == 1)
@@ -820,7 +820,7 @@ void ProcessTerminates(int signum)
                 #endif
                 printf("i am pushing here \n");
                 RR_Priority++;
-                pq_push(&readyQ, &Process_Table[process.id], RR_Priority);
+                pq_push(&readyQ, &Process_Table[process->id], RR_Priority);
             }
 
             break;
@@ -906,7 +906,7 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
             (*temp_process).state = msgbuf.state;
             (*temp_process).sizeNeeded = msgbuf.sizeNeeded;
 
-            bool canBeAllocated = memoryManage(true, *temp_process);
+            bool canBeAllocated = memoryManage(true, temp_process);
 
             if (canBeAllocated)
             {
@@ -1013,25 +1013,25 @@ bool memoryInitialize()
     memory[7] = _128KB_segments;
     memory[8] = _256KB_segments;
 
-    Segment *segment_1 = (Segment)malloc(sizeof(Segment));
+    Segment *segment_1 = (Segment*)malloc(sizeof(Segment));
     segment_1->size = 256;
     segment_1->start_address = 0;
     segment_1->end_address = 255;
     ll_Node* _256KB_segment_1 = ll_newNode(segment_1, nullptr);
 
-    Segment *segment_2 = (Segment)malloc(sizeof(Segment));
+    Segment *segment_2 = (Segment*)malloc(sizeof(Segment));
     segment_2->size = 256;
     segment_2->start_address = 256;
     segment_2->end_address = 511;
     ll_Node* _256KB_segment_2 = ll_newNode(segment_2, _256KB_segment_1);
 
-    Segment *segment_3 = (Segment)malloc(sizeof(Segment));
+    Segment *segment_3 = (Segment*)malloc(sizeof(Segment));
     segment_3->size = 256;
     segment_3->start_address = 512;
     segment_3->end_address = 767;
     ll_Node* _256KB_segment_3 = ll_newNode(segment_3, _256KB_segment_2);
 
-    Segment *segment_4 = (Segment)malloc(sizeof(Segment));
+    Segment *segment_4 = (Segment*)malloc(sizeof(Segment));
     segment_4->size = 256;
     segment_4->start_address = 768;
     segment_4->end_address = 1023;
@@ -1074,13 +1074,13 @@ void segmentation(int id_of_category, int target_of_category, Process* process)
 
     ll_Node* old_segment = memory[id_of_category]->Head;
 
-    Segment *segment_1 = (Segment)malloc(sizeof(Segment));
+    Segment *segment_1 = (Segment*)malloc(sizeof(Segment));
     segment_1->size = old_segment->data->size / 2;
     segment_1->end_address = old_segment->data->end_address;
     segment_1->start_address = segment_1->end_address - segment_1->size;
     ll_Node* new_segment_1 = ll_newNode(segment_1, memory[id_of_category-1]->Head);
 
-    Segment *segment_2 = (Segment)malloc(sizeof(Segment));
+    Segment *segment_2 = (Segment*)malloc(sizeof(Segment));
     segment_2->size = segment_1->size;
     segment_2->start_address = old_segment->data->start_address;
     segment_2->end_address = segment_1->start_address - 1;
@@ -1095,7 +1095,7 @@ void segmentation(int id_of_category, int target_of_category, Process* process)
 bool memoryAllocate(Process* process)
 {
     // 85KB
-    int size = process->size;
+    int size = process->sizeNeeded;
     int target_id_of_category = ceil(log(size) / log(2));
     int id_of_category = target_id_of_category;
     bool check = false;
@@ -1123,8 +1123,8 @@ Segment* mergeSegments(Segment* left, Segment* right)
     int id_of_old = ceil(log(left->size) / log(2));
     Segment* newSegment = (Segment*)malloc(sizeof(Segment));
 
-    newSegment->start_address(left->start_address);
-    newSegment->end_address(right->end_address);
+    newSegment->start_address = left->start_address;
+    newSegment->end_address = right->end_address;
     newSegment->size = left->size * 2;
 
     ll_Node* node = ll_newNode(newSegment, nullptr);

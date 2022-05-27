@@ -10,7 +10,7 @@ int shmid;                     //
 
 
 
-Process* Process_Constructor(int id, int arrivaltime, int burstTime,int priority)
+Process* Process_Constructor(int id, int arrivaltime, int burstTime,int priority, int size)
 {
     Process* p = (Process*) malloc(sizeof(Process));
     p->id = id;
@@ -21,6 +21,7 @@ Process* Process_Constructor(int id, int arrivaltime, int burstTime,int priority
     p->waiting_start_time = 0;
     p->waitingTime = 0;
     p->remainingTime = burstTime;
+    p->sizeNeeded = size;
     return p;
 }
 
