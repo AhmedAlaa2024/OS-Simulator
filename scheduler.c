@@ -24,7 +24,9 @@ int total_number_of_received_process;
 int total_number_of_processes;
 int RR_Priority;
 bool if_termination;
+int total_CPU_idle_time;
 
+bool ifReceived = false;
 bool process_generator_finished = false;
 
 int clk;
@@ -32,16 +34,8 @@ int clk;
 
 int sem;
 
-union Semun semun;
+//union Semun semun;
 /* arg for semctl system calls. */
-union Semun
-{
-    int val;               /* value for SETVAL */
-    struct semid_ds buf;  /* buffer for IPC_STAT & IPC_SET */
-    ushort array;         /* array for GETALL & SETALL */
-    struct seminfo __buf; /* buffer for IPC_INFO */
-    void *__pad;
-};
 
 int i, Q;
 
@@ -105,17 +99,19 @@ void write_in_logfile_stopped();
 void write_in_logfile_resume();
 void write_in_logfile_finished();
 
-
+int total_CPU_idle_time=0;
+int sem1;
 
 int main(int argc, char * argv[])
 {
 
     
     initClk();
-    
+    total_CPU_idle_time=0;
     signal(SIGCHLD, SIG_IGN);
 
     total_number_of_processes = 0;
+    total_CPU_idle_time = 0;
     i = 0;
     while(argv[1][i])
             total_number_of_processes = total_number_of_processes * 10 + (argv[1][i++] - '0');
@@ -151,12 +147,13 @@ int main(int argc, char * argv[])
 
 
     //semaphore
-    // key_id = ftok("key", 55);
-    // sem = semget(key_id, 1, 0666 | IPC_CREAT);
-    // semun.val = 0; /* initial value of the semaphore, Binary semaphore */
-    // if (semctl(sem, 0, SETVAL, semun) == -1)
+    // union Semun semun;
+    // key_t key1 = ftok("key.txt",11); 
+    // sem1 = semget(key1, 1, 0666 | IPC_CREAT );
+
+    // if(sem1 == -1)
     // {
-    //     perror("Error in semctl");
+    //     perror("Error in create sem");
     //     exit(-1);
     // }
 
@@ -167,7 +164,7 @@ int main(int argc, char * argv[])
 
     if (msg_id == -1) {
         perror("Error in create!");
-        exit(1);
+        //exit(1);
     }
 
 
@@ -245,7 +242,6 @@ int main(int argc, char * argv[])
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 //from the parent we will run each scheduler each clock cycle
 void RR(int quantum)
@@ -332,7 +328,7 @@ void RR(int quantum)
         }
         else{
             //printf("\ni am here -------------------------------------\n");
-            if(pq_peek(&readyQ))
+            if(!pq_isEmpty(&readyQ))
             {
                 //printf("\ni am here -------------------------------------\n");
                 //if_termination = false;
@@ -340,7 +336,7 @@ void RR(int quantum)
                 current_process_id = running->id;
                 
                 currentQuantum = quantum;
-                running->cumulativeRunningTime++;
+                //running->cumulativeRunningTime++;
                 if(running->state == READY)
                 {
                     //meaning that it is the first time to be fun on the cpu
@@ -384,6 +380,10 @@ void RR(int quantum)
                     write_in_logfile_resume();
                 }
             }
+            else
+            {
+                total_CPU_idle_time++;
+            }
             // else
             //     was_empty = true;
 
@@ -411,7 +411,6 @@ void RR(int quantum)
 
     }
 }
-
 /* Warning: Under development */
 void HPF(void)
 {
@@ -421,160 +420,227 @@ void HPF(void)
     int pr;
 
     running = NULL;
-
+    int firstTime = 0;
+    bool ifUpdated = true;
     while(total_number_of_processes)
     {
-
-        //handler_notify_scheduler_new_process_has_arrived(0);
-
+       // down(sem1);
         printf("###############################################################\n");
         printf("ReadyQ length until now: %d\n", pq_getLength(&readyQ));
         printf("###############################################################\n");
 
-        printf("###############################################################\n");
-        printf("Total Number of received process until now: %d\n", total_number_of_received_process);
-        printf("###############################################################\n");
-
-        if(running){
-        current_process_id=running->id;
-        running->remainingTime=*shmRemainingtime;
-        running->cumulativeRunningTime++;
-        }
-        else{
-            if(!pq_isEmpty(&readyQ))
+        if(running)
+        {
+            ifUpdated = false;
+            current_process_id=running->id;
+            
+            if(running->remainingTime>0)
             {
+                running->remainingTime--;
+                *shmRemainingtime=running->remainingTime;
+                running->cumulativeRunningTime++;
+            }
+            // if(!ifUpdated)
+            //     updateInformation();
+
+            // if(running->remainingTime == 0)
+            // {
+            //     // if(firstTime == 0)
+            //     // {
+            //     //     updateInformation();
+            //     // }
+                
+            //     // firstTime++;
+            //     continue;
+            // }
+                
+
+            
+            printf("if ruuning block");
+            
+
+        }
+        else if(pq_peek(&readyQ))
+            {
+                firstTime = 0;
+                ifUpdated = false;
                 running=pq_pop(&readyQ);
                 current_process_id=running->id;
 
-                running->cumulativeRunningTime++;
-                *shmRemainingtime = running->burstTime;
-                pid = fork();
-                if(pid == -1) perror("Error in fork");
-                if(pid ==0)
+                //running->cumulativeRunningTime++;
+                if(running->state==READY)
                 {
-                    pr=execl("./process.out","process.out",(char*)NULL);
-                    if(pr == -1)
+                    *shmRemainingtime=running->burstTime;
+                    running->waitingTime = getClk() - running->arrivalTime;
+                    pid = fork();
+                    if(pid == -1) perror("Error in fork");
+                    if(pid ==0)
                     {
-                        perror("Error in the process fork");
-                        exit(0);
-                    }
+                        pr=execl("./process.out","process.out",(char*)NULL);
+                        if(pr == -1)
+                        {
+                            perror("Error in the process fork");
+                            exit(0);
+                        }
                 }
                 running->pid=pid;
                 running->state=RUNNING;
                 running->running_start_time=getClk();
                 
-
                 write_in_logfile_start();
+                //updateInformation();
                 
             }
+            printf("if pq peek block");
         }
+        else
+            total_CPU_idle_time++;
+        
+        
+        //ifUpdated = false;
+        bool cont = false;
+        while(clk == getClk())
+        {
+            if(running && running->remainingTime == 0)
+            {
+                cont = true;
+                break;
+            }
+                
+        }
+        if(cont)
+            continue;
         updateInformation();
-        while(clk == getClk());
         clk=getClk();
+
         //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
     }
+    int CPU_utilization=(1-(total_CPU_idle_time/getClk()))*100;
 }
 void SRTN(void)
 {
     printf("heeeeeeeeeeeeeeeeeeeeeeeere");
     fflush(0);
-    int clk = -1;
+    int clk;
     int peek;
     int pid, pr;
-    do
+    while(total_number_of_processes)
     {
-        //current_process_id = running->id;
+            if(running && running->remainingTime == 0)
+                    continue;
             
-
-        if(getClk() != clk)
-        {
-            clk = getClk();
-            
-
-            if(running != NULL)
+            if(running)
             {
-                running->cumulativeRunningTime++;
+                printf("\n running: %d\n", running->remainingTime);
+                current_process_id = running->id;
 
-                if(pq_isEmpty(&readyQ))
+                if(!pq_isEmpty(&readyQ))
                 {
-                    updateInformation();
-                    continue;
+                    if(ifReceived)
+                    ifReceived = false;
+                    peek = pq_peek(&readyQ)->remainingTime;
+
+                    if(peek < running->remainingTime)
+                    {
+                    
+                    //switch:
+                  
+                    running->state = WAITING;
+                    //send signal stop to this process and insert it back in the ready queue
+                    running->waiting_start_time = getClk();
+                    kill(running->pid, SIGSTOP);
+                    pq_push(&readyQ, running, running->remainingTime);
+
+                    write_in_logfile_stopped();
+
+                    running = NULL;
+                    }
+
                 }
-                
-                
-                running->remainingTime = *shmRemainingtime;
 
-                peek = pq_peek(&readyQ)->remainingTime;
-
-                if(peek >= running->remainingTime)
-                {
-                    updateInformation();
-                    continue;
-                }
-
-                //switch:
-
-                running->state = WAITING;
-                //send signal stop to this process and insert it back in the ready queue
-                running->waiting_start_time = getClk()-1;
-                kill(running->pid, SIGSTOP);
-                pq_push(&readyQ, running, running->remainingTime);
-
-                write_in_logfile_stopped();
-
-                running = NULL;
             }
+             
             if(running == NULL)
             {
                 if(pq_isEmpty(&readyQ))
                 {
-                    updateInformation();
-                    continue;
+                    
+                    total_CPU_idle_time++;
                 }
-                running = pq_pop(&readyQ);
-            }
-
-            if(running->state == READY)
-            {
-                pid = fork();
-                if(pid == -1) perror("Error in fork!!");
-                if(pid == 0)
+                else
                 {
-                    pr = execl("./process.out", "process.out", (char*) NULL);
-                    if(pr == -1)
-                    {
-                        perror("Error in the process fork!\n");
-                        exit(0);
-                    }
+                    if(ifReceived)
+                    ifReceived = false;
+                    running = pq_pop(&readyQ);
+                    current_process_id = running->id;
+                    *shmRemainingtime = running->remainingTime;
                 }
-                running->state = RUNNING;
-                running->running_start_time = getClk();
-                
-                *shmRemainingtime = running->remainingTime;
-
-                running->pid = pid;
-
-                write_in_logfile_start();
 
             }
-            if(running->state == WAITING)
+            if(running)
             {
-                kill(running->pid, SIGCONT);
-                running->state = RUNNING;
-                running->running_start_time = getClk();
-              
-                *shmRemainingtime = running->remainingTime;
-                write_in_logfile_resume();
-            }
-           
-            current_process_id = running->id;
-            updateInformation();
-        }
+                 if(running->state == READY)
+                {
+                    pid = fork();
+                    if(pid == -1) perror("Error in fork!!");
+                    if(pid == 0)
+                    {
+                        pr = execl("./process.out", "process.out", (char*) NULL);
+                        if(pr == -1)
+                        {
+                            perror("Error in the process fork!\n");
+                            exit(0);
+                        }
+                    }
+                    
+                    running->state = RUNNING;
+                    running->running_start_time = getClk();
+                    
+                    
 
-    } while (1);
+                    running->pid = pid;
+                    current_process_id = running->id;
+
+                    write_in_logfile_start();
+
+                }
+                else if(running->state == WAITING)
+                {
+                    kill(running->pid, SIGCONT);
+                    running->state = RUNNING;
+                    running->running_start_time = getClk();
+                
+                    current_process_id = running->id;
+                    write_in_logfile_resume();
+                }
+
+
+            }
+        //Label:
+        while (clk == getClk())
+        {
+            if(ifReceived)
+            {
+                break;
+            }
+        }
+        if(ifReceived) 
+            continue;
+        else
+        {
+            if(running && running->remainingTime > 0)
+            {
+                running->cumulativeRunningTime++;
+                running->remainingTime--;
+                *shmRemainingtime = running->remainingTime;
+                updateInformation();
+            }
+        }
+        
+        clk = getClk();
+    } 
 
 }
-
 
 void updateInformation() {
 
@@ -674,7 +740,7 @@ void write_in_logfile_finished()
         (float)(clk - running->arrivalTime) / running->burstTime  //to ask (float)
     );
     fflush(0);
-    fprintf(logFile, "At  time  %i  process  %i  finished  arr  %i  total  %i  remain  %i  wait  %i  TA  %i  WTA  %f\n",
+    fprintf(logFile, "At  time  %i  process  %i  finished  arr  %i  total  %i  remain  %i  wait  %i  TA  %i  WTA  %.2f\n",
         clk,
         running->id,
         running->arrivalTime,
@@ -688,10 +754,14 @@ void write_in_logfile_finished()
     fflush(0);
 }
 
+void write_in_perf_file()
+{
+    float CPU_utilization = (getClk() - (total_CPU_idle_time)) / (float)getClk();
+}
 
 //handler_notify_scheduler_I_terminated
 void ProcessTerminates(int signum)
-{
+{//down(sem1);
     printf("\n a process terminates\n");
     //TODO
     //implement what the scheduler should do when it gets notifies that a process is finished
@@ -717,105 +787,69 @@ void ProcessTerminates(int signum)
 
 void handler_notify_scheduler_new_process_has_arrived(int signum)
 {
-    
-    int receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, !(IPC_NOWAIT));
-    printf("\nreceiveValue : %d \n", receiveValue);
-    
+  int receiveValue;
+  int rc;
+  struct msqid_ds buf;
+  int num_messages;
 
-    if(receiveValue != -1)
-    {
-        printf("\nScehduler: I received!\n");
-        fflush(0);
-        #if (NOTIFICATION == 1)
-        printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
-        #endif
-        total_number_of_received_process += 1;
+  rc = msgctl(msg_id, IPC_STAT, &buf);
+  num_messages = buf.msg_qnum;
+    for(int i=0; i<num_messages;i++)
+        {
+            receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, (!IPC_NOWAIT));
+        printf("\nreceiveValue : %d \n", receiveValue);
+        
 
-        Process_Table[msgbuf.id].id = msgbuf.id;
-        Process_Table[msgbuf.id].waitingTime = msgbuf.waitingTime;
-        Process_Table[msgbuf.id].remainingTime = msgbuf.remainingTime;
-        Process_Table[msgbuf.id].burstTime = msgbuf.burstTime;
-        Process_Table[msgbuf.id].priority = msgbuf.priority;
-        Process_Table[msgbuf.id].cumulativeRunningTime = msgbuf.cumulativeRunningTime;
-        Process_Table[msgbuf.id].waiting_start_time = msgbuf.waiting_start_time;
-        Process_Table[msgbuf.id].running_start_time = msgbuf.running_start_time;
-        Process_Table[msgbuf.id].arrivalTime = msgbuf.arrivalTime;
-        Process_Table[msgbuf.id].state = msgbuf.state;
-
-        //enqueue in the readyQ
-
-        // pq_push(&readyQ, &Process_Table[msgbuf.id], 0);
-
-        //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
-         // pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
-//          printf("\nalgo///////////////////%d\n",algorithm);
-// printf("\nalgo///////////////////%d\n",algo);
-
-        if (algo==0)
-            pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
-        else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
-            #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-            #endif
-            pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].remainingTime);
-        }
-        else if (algo == 2) {
-            #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-            #endif
-            printf("i am pushing here \n");
-            RR_Priority++;
-            pq_push(&readyQ, &Process_Table[msgbuf.id], RR_Priority);
-        }
-
-
-        /* Parent is systemd, which means the process_generator is died! */
-        if (getppid() == 1) {
-            printf("My father is died!\n");
+        if(receiveValue != -1)
+        {
+            printf("\nScehduler: I received!\n");
             fflush(0);
-            process_generator_finished = true;
+            #if (NOTIFICATION == 1)
+            printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
+            #endif
+            total_number_of_received_process += 1;
+
+            Process_Table[msgbuf.id].id = msgbuf.id;
+            Process_Table[msgbuf.id].waitingTime = msgbuf.waitingTime;
+            Process_Table[msgbuf.id].remainingTime = msgbuf.remainingTime;
+            Process_Table[msgbuf.id].burstTime = msgbuf.burstTime;
+            Process_Table[msgbuf.id].priority = msgbuf.priority;
+            Process_Table[msgbuf.id].cumulativeRunningTime = msgbuf.cumulativeRunningTime;
+            Process_Table[msgbuf.id].waiting_start_time = msgbuf.waiting_start_time;
+            Process_Table[msgbuf.id].running_start_time = msgbuf.running_start_time;
+            Process_Table[msgbuf.id].arrivalTime = msgbuf.arrivalTime;
+            Process_Table[msgbuf.id].state = msgbuf.state;
+
+      
+
+            if (algo==0)
+                pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
+            else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
+                #if (WARNINGS == 1)
+                #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
+                #endif
+                pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].remainingTime);
+            }
+            else if (algo == 2) {
+                #if (WARNINGS == 1)
+                #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
+                #endif
+                printf("i am pushing here \n");
+                RR_Priority++;
+                pq_push(&readyQ, &Process_Table[msgbuf.id], RR_Priority);
+            }
+
+
+            /* Parent is systemd, which means the process_generator is died! */
+            if (getppid() == 1) {
+                printf("My father is died!\n");
+                fflush(0);
+                process_generator_finished = true;
+            }
         }
     }
+
+    ifReceived = true;
     
-
-   //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
-}
-
-
-
-
-void down(int sem)
-{
-    struct sembuf p_op;
-
-    p_op.sem_num = 0;
-    p_op.sem_op = -1;
-    p_op.sem_flg = !IPC_NOWAIT;
-
-    if (semop(sem, &p_op, 1) == -1)
-    {
-        perror("Error in down()");
-        exit(-1);
-    }
-    else{
-        printf("\n--------------success in down------\n");
-    }
-}
-
-void up(int sem)
-{
-    struct sembuf v_op;
-
-    v_op.sem_num = 0;
-    v_op.sem_op = 1;
-    v_op.sem_flg = !IPC_NOWAIT;
-
-    if (semop(sem, &v_op, 1) == -1)
-    {
-        perror("Error in up()");
-        exit(-1);
-    }
-    else{
-        printf("\n--------------success in up------\n");
-    }
+   signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
 }

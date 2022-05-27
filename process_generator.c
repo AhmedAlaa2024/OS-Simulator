@@ -4,6 +4,7 @@
 #define LINE_SIZE 300
 
 int msg_id;
+int sem1;
 
 void clearResources(int);
 // void handler(int signum){
@@ -27,6 +28,21 @@ int main(int argc, char * argv[])
         perror("Error in create!");
         exit(1);
     }
+    // union Semun semun;
+    // key_t key1 = ftok("key.txt",11); 
+    // sem1 = semget(key1, 1, 0666 | IPC_CREAT );
+
+    // if(sem1 == -1)
+    // {
+    //     perror("Error in create sem");
+    //     exit(-1);
+    // }
+    // semun.val = 0; /intial value of the semaphore, Binary semaphore/
+    // if(semctl(sem1,0,SETVAL,semun) == -1)
+    // {
+    //     perror("Error in semclt");
+    //     exit(-1);
+    // }
 
     #if (NOTIFICATION == 1)
     printf("Notification (Process_generator) : Message Queue ID = %d\n", msg_id);
@@ -55,7 +71,6 @@ int main(int argc, char * argv[])
     
 
     pFile = fopen("processes.txt", "r");
-
     while(fgets(line, LINE_SIZE, pFile) != NULL){
         
         if(line[0] == '#'){continue;}
@@ -66,10 +81,12 @@ int main(int argc, char * argv[])
             printf("%d\t", process[i]);
         printf("\n");
         const_p = Process_Constructor(process[0], process[1], process[2],process[3]);
-        pq_push(&processQ, const_p, const_p->id);
+        pq_push(&processQ, const_p, const_p->arrivalTime);
         tot_pnum++;
     }
 
+
+    printf("the length of the queue is : %d \n", pq_getLength(&processQ));
 
 
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
@@ -96,6 +113,29 @@ int main(int argc, char * argv[])
 
     // 3. Initiate and create the scheduler and clock processes.
 
+
+
+
+    
+
+        
+    scdPid = fork();
+
+    if (scdPid == -1) // I can't fork again
+    {
+        perror("Error in forking!\n");
+    }
+    else if (scdPid == 0) // I am an another child
+    {
+        if(execl("./scheduler.out", "scheduler.out", &pNum, &algo, &Quantum, (char *) NULL) == -1)
+        {
+            perror("Error in execl for scheduler forking\n");
+            printf("\nerror -------------------------\n\n");
+        }
+            
+    }
+
+    
     
     clkPid = fork();
 
@@ -110,24 +150,10 @@ int main(int argc, char * argv[])
     }
 
 
-    scdPid = fork();
-
-    if (scdPid == -1) // I can't fork again
-    {
-        perror("Error in forking!\n");
-    }
-    else if (scdPid == 0) // I am an another child
-    {
-        if(execl("./scheduler.out", "scheduler.out", &pNum, &algo, &Quantum, (char *) NULL) == -1)
-            perror("Error in execl for scheduler forking\n");
-    }
-
-
-      
-
-
     // 4. Use this function after creating the clock process to initialize clock
     initClk();
+
+    //sleep(0.5);
 
     // To get time use this
     int x = getClk();
@@ -140,11 +166,14 @@ int main(int argc, char * argv[])
     // 6. Send the information to the scheduler at the appropriate time.
     
     
-
+    int clk_dummy=-1;
     while(!pq_isEmpty(&processQ))
     {
-        int clk = getClk();
-        if(pq_peek(&processQ)->arrivalTime <= getClk()) {
+        
+        
+        bool if_fill_q = false;
+        while(pq_peek(&processQ)->arrivalTime <= getClk()) {
+            
             #if(DEBUGGING == 1)
             int pid = pq_peek(&processQ)->id;
             int arrivalTime = pq_peek(&processQ)->arrivalTime;
@@ -156,7 +185,7 @@ int main(int argc, char * argv[])
             Process *ptr = pq_pop(&processQ);
 
             msgbuf.id = ptr->id;
-            msgbuf.waitingTime = ptr->arrivalTime;
+            msgbuf.waitingTime = ptr->waitingTime;
             msgbuf.remainingTime = ptr->remainingTime;
             msgbuf.burstTime = ptr->burstTime;
             msgbuf.priority = ptr->priority;
@@ -165,24 +194,48 @@ int main(int argc, char * argv[])
             msgbuf.running_start_time = ptr->running_start_time;
             msgbuf.arrivalTime = ptr->arrivalTime;
             msgbuf.state = READY;
-            printf("\nProcess_generator: I sent!\n");
-
+            //printf("\nProcess_generator: I sent!\n");
             int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
             if (sendvalue == -1)
                 printf("Error in sending!\n");
-            else {
-                int ifsent = kill(scdPid, SIGUSR1);
-                if(ifsent == 0)
-                    printf("child id : %d\n", scdPid);
-                    printf("I send signal to my child scheduler!\n");
-            }
+            else{
+                    if_fill_q = true;
+                    printf("i send to scheduler a process with arrival = %d\n", msgbuf.arrivalTime);
+
+                }
+                if(pq_isEmpty(&processQ)) break;
+            
+        }
+        if(if_fill_q)
+        {
+             int ifsent = kill(scdPid, SIGUSR1);
+            // if(ifsent == 0)
+            // {
+            //     printf("child id : %d\n", scdPid);
+            //     printf("I send signal to my child scheduler!\n");
+
+            // }
 
         }
-        while(clk == getClk());
-        clk = getClk();
+       
+           
+                // else if(clk_dummy!=getClk())
+        //     {
+        //          printf("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$44uped inside upper while$$$$$$$$$$$$$$$$$$$$$$$$$");
+        //         up(sem1);
+        //         clk_dummy=getClk();
+        //     }
     }
-
-    while(true);
+   
+    while(true)
+    {
+        // if(clk_dummy!=getClk())
+        //     {
+        //         printf("u$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$4ped inside lower while$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$");
+        //         up(sem1);
+        //         clk_dummy=getClk();
+        //     }
+    };
     // 7. Clear clock resources
     //shmctl(get_shmid(), IPC_RMID, (struct shmid_ds *)0);
     //destroyClk(true);
@@ -193,6 +246,11 @@ void clearResources(int signum)
     //TODO Clears all resources in case of interruption
     shmctl(get_shmid(), IPC_RMID, (struct shmid_ds *)0);
     msgctl(msg_id, IPC_RMID, (struct msqid_ds *)0);
+//     if(semctl(sem1,0,IPC_RMID,NULL) == -1 )
+//    {
+//         perror("Error in semclt");
+//         exit(-1);
+//     }
     signal(SIGINT, clearResources);
 
     exit(0);

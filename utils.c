@@ -1,10 +1,14 @@
 #include "headers.h"
 
 
+int initial_clk = -1;
+
 //don't mess with this variable//
-int * shmaddr;                 //
+int * shmaddr;// = &initial_clk;                 //
 int shmid;                     //
 //===============================
+
+
 
 Process* Process_Constructor(int id, int arrivaltime, int burstTime,int priority)
 {
@@ -22,6 +26,9 @@ Process* Process_Constructor(int id, int arrivaltime, int burstTime,int priority
 
 int getClk()
 {
+
+    if(initial_clk == -1)
+        return -1;
     return *shmaddr;
 }
 
@@ -41,6 +48,8 @@ void initClk()
         shmid = shmget(key, 4, 0644 | IPC_CREAT);
     }
     shmaddr = (int *) shmat(shmid, (void *)0, 0);
+    while(*shmaddr == 0);
+    initial_clk = 0;
 }
 
 int get_shmid(void)
