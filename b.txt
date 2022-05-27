@@ -94,15 +94,7 @@ void SRTN(void)
                     write_in_logfile_resume();
                 }
 
-                if(running->remainingTime > 0)
-                {
-                    running->cumulativeRunningTime++;
-                    running->remainingTime--;
-                    *shmRemainingtime = running->remainingTime;
-                }
                 
-                // if(running && running->remainingTime == 0)
-                //     continue;
 
 
             }
@@ -112,16 +104,16 @@ void SRTN(void)
         {
             if(ifReceived)
             {
-                if(running && running->remainingTime > 0)
-                {
-                running->remainingTime++;
-                running->cumulativeRunningTime--;
-                *shmRemainingtime = running->remainingTime;
-                }
-
                 break;
             }
         }
+        if(running && running->remainingTime > 0)
+        {
+            running->cumulativeRunningTime++;
+            running->remainingTime--;
+            *shmRemainingtime = running->remainingTime;
+        }
+        
         clk = getClk();
     } 
 
