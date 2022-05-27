@@ -15,8 +15,9 @@ void SRTN(void)
                 printf("\n running: %d\n", running->remainingTime);
                 current_process_id = running->id;
 
-                if(ifReceived && !pq_isEmpty(&readyQ))
+                if(!pq_isEmpty(&readyQ))
                 {
+                    if(ifReceived)
                     ifReceived = false;
                     peek = pq_peek(&readyQ)->remainingTime;
 
@@ -90,11 +91,9 @@ void SRTN(void)
                     running->state = RUNNING;
                     running->running_start_time = getClk();
                 
-                    
+                    current_process_id = running->id;
                     write_in_logfile_resume();
                 }
-
-                
 
 
             }
@@ -107,6 +106,7 @@ void SRTN(void)
                 break;
             }
         }
+        if(ifReceived) continue;
         if(running && running->remainingTime > 0)
         {
             running->cumulativeRunningTime++;
