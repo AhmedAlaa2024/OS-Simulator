@@ -541,66 +541,50 @@ void SRTN(void)
 {
     printf("heeeeeeeeeeeeeeeeeeeeeeeere");
     fflush(0);
-    int clk;
+    int clk = getClk();
     int peek;
     int pid, pr;
-    while(total_number_of_processes)
+    while (total_number_of_processes)
     {
-            if(running && running->remainingTime == 0)
+        if(running && running->remainingTime == 0)
                     continue;
-            
-            if(running)
+        
+        if(ifReceived) ifReceived = false;
+
+        if (running)
+        {
+            if(!pq_isEmpty(&readyQ))
             {
-                printf("\n running: %d\n", running->remainingTime);
-                current_process_id = running->id;
+                peek = pq_peek(&readyQ)->remainingTime;
 
-                if(!pq_isEmpty(&readyQ))
+                if(peek < running->remainingTime)
                 {
-                    if(ifReceived)
-                    ifReceived = false;
-                    peek = pq_peek(&readyQ)->remainingTime;
-
-                    if(peek < running->remainingTime)
-                    {
-                    
                     //switch:
-                  
-                    running->state = WAITING;
-                    //send signal stop to this process and insert it back in the ready queue
-                    running->waiting_start_time = getClk();
-                    kill(running->pid, SIGSTOP);
-                    pq_push(&readyQ, running, running->remainingTime);
+                
+                running->state = WAITING;
+                //send signal stop to this process and insert it back in the ready queue
+                running->waiting_start_time = getClk();
+                kill(running->pid, SIGSTOP);
+                pq_push(&readyQ, running, running->remainingTime);
 
-                    write_in_logfile_stopped();
-
-                    running = NULL;
-                    }
-
+                write_in_logfile_stopped();
+                running = NULL;
                 }
-
-            }
-             
-            if(running == NULL)
+            } 
+        }
+        if (running == NULL)
+        {
+            if(!pq_isEmpty(&readyQ))
             {
-                if(pq_isEmpty(&readyQ))
-                {
-                    
-                    total_CPU_idle_time++;
-                }
-                else
-                {
-                    if(ifReceived)
-                    ifReceived = false;
-                    running = pq_pop(&readyQ);
-                    current_process_id = running->id;
-                    *shmRemainingtime = running->remainingTime;
-                }
+                running = pq_pop(&readyQ);
+                current_process_id = running->id;
+                *shmRemainingtime = running->remainingTime;
 
-            }
-            if(running)
-            {
-                 if(running->state == READY)
+                if (running->state == READY)
                 {
+                    // Setting initial waiting time
+                    running->waitingTime = getClk() - running->arrivalTime;
+
                     pid = fork();
                     if(pid == -1) perror("Error in fork!!");
                     if(pid == 0)
@@ -612,11 +596,9 @@ void SRTN(void)
                             exit(0);
                         }
                     }
-                    
+
                     running->state = RUNNING;
                     running->running_start_time = getClk();
-                    
-                    
 
                     running->pid = pid;
                     current_process_id = running->id;
@@ -624,44 +606,34 @@ void SRTN(void)
                     write_in_logfile_start();
 
                 }
-                else if(running->state == WAITING)
-                {
-                    kill(running->pid, SIGCONT);
-                    running->state = RUNNING;
-                    running->running_start_time = getClk();
-                
-                    current_process_id = running->id;
-                    write_in_logfile_resume();
-                }
-
-
-            }
-        //Label:
-        while (clk == getClk())
-        {
-            if(ifReceived)
+            if(running->state == WAITING)
             {
-                break;
+                kill(running->pid, SIGCONT);
+                running->state = RUNNING;
+                running->running_start_time = getClk();
+            
+                current_process_id = running->id;
+
+                running->waitingTime += getClk() - running->waiting_start_time;
+
+                write_in_logfile_resume();
             }
+            }
+            
         }
-        if(ifReceived) 
-            continue;
-        else
+        while (clk == getClk()) if(ifReceived) break;
+        if(ifReceived) continue;
+        if(running && running->remainingTime > 0)
         {
-            if(running && running->remainingTime > 0)
-            {
-                running->cumulativeRunningTime++;
-                running->remainingTime--;
-                *shmRemainingtime = running->remainingTime;
-                updateInformation();
-            }
+            running->cumulativeRunningTime++;
+            running->remainingTime--;
+            *shmRemainingtime = running->remainingTime;
         }
-        
+        if(!running && pq_isEmpty(&readyQ))
+            total_CPU_idle_time++;
         clk = getClk();
-    } 
-
+    }
 }
-
 void updateInformation() {
 
     /* Update information for the waiting processes */
