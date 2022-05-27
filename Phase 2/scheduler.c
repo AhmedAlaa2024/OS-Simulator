@@ -204,10 +204,6 @@ int main(int argc, char * argv[])
     // printf("argv[2]: %d\n", atoi(argv[2]));
     // printf("argv[3]: %d\n", atoi(argv[3]));
 
-
-
-    
-    
     if(argc < 3) { perror("Too few CLA!!"); return -1;}
 
     // switch (argv[2][0])
@@ -1208,7 +1204,7 @@ bool memoryDeallocate(Segment* segment, int id_of_category)
     // Parity:   E   E   [O]    E  O   O
     // If Even -> Merge with right
     // If Odd -> Merge with left
-    
+
     if (id_of_category == 9)
         return true;
 

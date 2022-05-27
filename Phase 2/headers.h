@@ -88,7 +88,7 @@ typedef struct {
  State state;
 } MsgBuf;
 
-Process* Process_Constructor(int id, int arrivaltime, int executiontime,int priority);
+Process* Process_Constructor(int id, int arrivaltime, int executiontime,int priority, int size);
 int getClk();
 
 
