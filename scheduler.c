@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <math.h>
 
 
 FILE* logFile, *perfFile;
@@ -25,6 +26,16 @@ int total_number_of_processes;
 int RR_Priority;
 bool if_termination;
 int total_CPU_idle_time;
+int number_of_terminated_processes;
+
+
+float CPU_utilization;
+float Avg_WTA;
+float Avg_Waiting;
+float Std_WTA;
+float total_Waiting;
+float total_WTA;
+float* WTA;
 
 bool ifReceived = false;
 bool process_generator_finished = false;
@@ -98,6 +109,7 @@ void write_in_logfile_start();
 void write_in_logfile_stopped();
 void write_in_logfile_resume();
 void write_in_logfile_finished();
+void write_in_perffile();
 
 int total_CPU_idle_time=0;
 int sem1;
@@ -127,6 +139,14 @@ int main(int argc, char * argv[])
  
 
     idleProcess.id = 0;
+    CPU_utilization = 0;
+    Avg_WTA = 0;
+    Avg_Waiting = 0;
+    Std_WTA = 0;
+    total_Waiting = 0;
+    total_WTA = 0;
+    number_of_terminated_processes = 0;
+    WTA = malloc(sizeof(float) * total_number_of_processes);
 
     //the remainging time of the current running process
     key_id = ftok("key.txt", 65);
@@ -218,6 +238,8 @@ int main(int argc, char * argv[])
 
     while(pq_isEmpty(&readyQ)); //to guarantee that once the first process arrives it will begin at once not at the next sec
 
+    total_CPU_idle_time = getClk();
+
     if(algo== 2)
         RR(Q);
         
@@ -237,13 +259,15 @@ int main(int argc, char * argv[])
 
 
     fclose(logFile);
+
+    write_in_perffile();
+
     destroyClk(true);
     // return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//from the parent we will run each scheduler each clock cycle
 void RR(int quantum)
 {
     //printf("I am RR! \n");
@@ -260,10 +284,7 @@ void RR(int quantum)
         printf("Total Number of processes until now: %d\n", pq_getLength(&readyQ));
         printf("###############################################################\n");
 
-        //handler_notify_scheduler_new_process_has_arrived(0);
-        //printf("\ni am here -------------------------------------\n");
-
-        //printf("\ni am here \n");
+        
         if(running)
         {
 
@@ -282,7 +303,7 @@ void RR(int quantum)
 
             currentQuantum--;
             
-            //(*running).remainingTime = *shmRemainingtime;
+            
             running->cumulativeRunningTime++;
 
             //to avoid stopping the process after ending the quantum if it is the only process in the system
@@ -301,18 +322,10 @@ void RR(int quantum)
 
                 //send signal stop to this process and insert it back in the ready queue
                 running->waiting_start_time = getClk();
-                //down(sem);
-                //while(running->remainingTime == *shmRemainingtime);
-                //while(remain_beg - *shmRemainingtime == quantum);
+
                 kill(running->pid, SIGSTOP);
 
-                //running->remainingTime = *shmRemainingtime;
-
-                //termination occur ??
-                
-                // if(running->remainingTime == 0)
-                //     continue;
-                
+  
                 RR_Priority++;
                 pq_push(&readyQ, running, RR_Priority);
 
@@ -323,15 +336,13 @@ void RR(int quantum)
                 running = NULL;
 
                 continue;  //to make the next process begin exactly after the current is stopped
-                //printf("\ni am here after blocking a process--------------------------------------\n");
             }
         }
         else{
-            //printf("\ni am here -------------------------------------\n");
+            
             if(!pq_isEmpty(&readyQ))
             {
-                //printf("\ni am here -------------------------------------\n");
-                //if_termination = false;
+                
                 running = pq_pop(&readyQ);
                 current_process_id = running->id;
                 
@@ -374,7 +385,6 @@ void RR(int quantum)
                     running->remainingTime == *shmRemainingtime;
                     running->state = RUNNING;
                     running->running_start_time = getClk();
-                    //down(sem);
                     //*shmRemainingtime = running->remainingTime;
                     //currentQuantum--;
                     write_in_logfile_resume();
@@ -384,30 +394,18 @@ void RR(int quantum)
             {
                 total_CPU_idle_time++;
             }
-            // else
-            //     was_empty = true;
-
-
+            
         }
 
         
         updateInformation();
         printf("\nclk = %d   getclk = %d\n", clk, getClk());
         while(clk == getClk());  // && !pq_isEmpty(&readyQ) && running
-        // {
-        //     if(!pq_isEmpty(&readyQ) && was_empty)
-        //         break;
-        // }
+       
         clk = getClk();
 
         
 
-        // semun.val = 0; /* initial value of the semaphore, Binary semaphore */
-        // if (semctl(sem, 0, SETVAL, semun) == -1)
-        // {
-        //     perror("Error in semctl");
-        //     exit(-1);
-        // }
 
     }
 }
@@ -424,10 +422,11 @@ void HPF(void)
     bool ifUpdated = true;
     while(total_number_of_processes)
     {
-       // down(sem1);
-        printf("###############################################################\n");
-        printf("ReadyQ length until now: %d\n", pq_getLength(&readyQ));
-        printf("###############################################################\n");
+        printf("\ntotal_CPU_idle_time = %d\n", total_CPU_idle_time);
+
+        // printf("###############################################################\n");
+        // printf("ReadyQ length until now: %d\n", pq_getLength(&readyQ));
+        // printf("###############################################################\n");
 
         if(running)
         {
@@ -440,22 +439,7 @@ void HPF(void)
                 *shmRemainingtime=running->remainingTime;
                 running->cumulativeRunningTime++;
             }
-            // if(!ifUpdated)
-            //     updateInformation();
-
-            // if(running->remainingTime == 0)
-            // {
-            //     // if(firstTime == 0)
-            //     // {
-            //     //     updateInformation();
-            //     // }
-                
-            //     // firstTime++;
-            //     continue;
-            // }
-                
-
-            
+ 
             printf("if ruuning block");
             
 
@@ -488,7 +472,6 @@ void HPF(void)
                 running->running_start_time=getClk();
                 
                 write_in_logfile_start();
-                //updateInformation();
                 
             }
             printf("if pq peek block");
@@ -497,7 +480,7 @@ void HPF(void)
             total_CPU_idle_time++;
         
         
-        //ifUpdated = false;
+
         bool cont = false;
         while(clk == getClk())
         {
@@ -513,74 +496,58 @@ void HPF(void)
         updateInformation();
         clk=getClk();
 
-        //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
+        
     }
-    int CPU_utilization=(1-(total_CPU_idle_time/getClk()))*100;
+    //int CPU_utilization=(1-(total_CPU_idle_time/getClk()))*100;
 }
 void SRTN(void)
 {
     printf("heeeeeeeeeeeeeeeeeeeeeeeere");
     fflush(0);
-    int clk;
+    int clk = getClk();
     int peek;
     int pid, pr;
-    while(total_number_of_processes)
+    while (total_number_of_processes)
     {
-            if(running && running->remainingTime == 0)
+        if(running && running->remainingTime == 0)
                     continue;
-            
-            if(running)
+        
+        if(ifReceived) ifReceived = false;
+
+        if (running)
+        {
+            if(!pq_isEmpty(&readyQ))
             {
-                printf("\n running: %d\n", running->remainingTime);
-                current_process_id = running->id;
+                peek = pq_peek(&readyQ)->remainingTime;
 
-                if(!pq_isEmpty(&readyQ))
+                if(peek < running->remainingTime)
                 {
-                    if(ifReceived)
-                    ifReceived = false;
-                    peek = pq_peek(&readyQ)->remainingTime;
-
-                    if(peek < running->remainingTime)
-                    {
-                    
                     //switch:
-                  
-                    running->state = WAITING;
-                    //send signal stop to this process and insert it back in the ready queue
-                    running->waiting_start_time = getClk();
-                    kill(running->pid, SIGSTOP);
-                    pq_push(&readyQ, running, running->remainingTime);
+                
+                running->state = WAITING;
+                //send signal stop to this process and insert it back in the ready queue
+                running->waiting_start_time = getClk();
+                kill(running->pid, SIGSTOP);
+                pq_push(&readyQ, running, running->remainingTime);
 
-                    write_in_logfile_stopped();
-
-                    running = NULL;
-                    }
-
+                write_in_logfile_stopped();
+                running = NULL;
                 }
-
-            }
-             
-            if(running == NULL)
+            } 
+        }
+        if (running == NULL)
+        {
+            if(!pq_isEmpty(&readyQ))
             {
-                if(pq_isEmpty(&readyQ))
-                {
-                    
-                    total_CPU_idle_time++;
-                }
-                else
-                {
-                    if(ifReceived)
-                    ifReceived = false;
-                    running = pq_pop(&readyQ);
-                    current_process_id = running->id;
-                    *shmRemainingtime = running->remainingTime;
-                }
+                running = pq_pop(&readyQ);
+                current_process_id = running->id;
+                *shmRemainingtime = running->remainingTime;
 
-            }
-            if(running)
-            {
-                 if(running->state == READY)
+                if (running->state == READY)
                 {
+                    // Setting initial waiting time
+                    running->waitingTime = getClk() - running->arrivalTime;
+
                     pid = fork();
                     if(pid == -1) perror("Error in fork!!");
                     if(pid == 0)
@@ -592,11 +559,9 @@ void SRTN(void)
                             exit(0);
                         }
                     }
-                    
+
                     running->state = RUNNING;
                     running->running_start_time = getClk();
-                    
-                    
 
                     running->pid = pid;
                     current_process_id = running->id;
@@ -604,44 +569,34 @@ void SRTN(void)
                     write_in_logfile_start();
 
                 }
-                else if(running->state == WAITING)
-                {
-                    kill(running->pid, SIGCONT);
-                    running->state = RUNNING;
-                    running->running_start_time = getClk();
-                
-                    current_process_id = running->id;
-                    write_in_logfile_resume();
-                }
-
-
-            }
-        //Label:
-        while (clk == getClk())
-        {
-            if(ifReceived)
+            if(running->state == WAITING)
             {
-                break;
+                kill(running->pid, SIGCONT);
+                running->state = RUNNING;
+                running->running_start_time = getClk();
+            
+                current_process_id = running->id;
+
+                running->waitingTime += getClk() - running->waiting_start_time;
+
+                write_in_logfile_resume();
             }
+            }
+            
         }
-        if(ifReceived) 
-            continue;
-        else
+        while (clk == getClk()) if(ifReceived) break;
+        if(ifReceived) continue;
+        if(running && running->remainingTime > 0)
         {
-            if(running && running->remainingTime > 0)
-            {
-                running->cumulativeRunningTime++;
-                running->remainingTime--;
-                *shmRemainingtime = running->remainingTime;
-                updateInformation();
-            }
+            running->cumulativeRunningTime++;
+            running->remainingTime--;
+            *shmRemainingtime = running->remainingTime;
         }
-        
+        if(!running && pq_isEmpty(&readyQ))
+            total_CPU_idle_time++;
         clk = getClk();
-    } 
-
+    }
 }
-
 void updateInformation() {
 
     /* Update information for the waiting processes */
@@ -724,7 +679,6 @@ void write_in_logfile_stopped()
     );
     fflush(0);
 }
-
 void write_in_logfile_finished()
 {
     int clk = getClk();
@@ -752,11 +706,39 @@ void write_in_logfile_finished()
         (float)(clk - running->arrivalTime) / running->burstTime  //to ask (float)
     );
     fflush(0);
+    WTA[number_of_terminated_processes] = (float)(clk - running->arrivalTime) / running->burstTime;
+    total_WTA += WTA[number_of_terminated_processes];
+    total_Waiting += running->waitingTime;
+    number_of_terminated_processes++;
 }
+// void write_in_perf_file()
+// {
+//     float CPU_utilization = (getClk() - (total_CPU_idle_time)) / (float)getClk();
+// }
 
-void write_in_perf_file()
+void write_in_perffile()
 {
-    float CPU_utilization = (getClk() - (total_CPU_idle_time)) / (float)getClk();
+
+    printf("\ntotal_CPU_idle_time = %d\n", total_CPU_idle_time);
+    total_CPU_idle_time--;
+
+    perfFile = fopen("Scheduler.perf", "w");
+    CPU_utilization = (1-((float)total_CPU_idle_time/getClk()))*100.0;
+    fprintf(perfFile, "CPU utilization = %.2f%%\n",CPU_utilization);
+    Avg_WTA = total_WTA/total_number_of_received_process;
+    fprintf(perfFile, "Avg WTA = %.2f\n",Avg_WTA);
+    Avg_Waiting = (float)total_Waiting/total_number_of_received_process;
+    fprintf(perfFile, "Avg Waiting = %.2f\n",Avg_Waiting);
+    float sum = 0;
+    for(int i = 0; i < total_number_of_received_process;i++)
+    {
+        sum += ((WTA[i]-Avg_WTA)*(WTA[i]-Avg_WTA));
+    }
+    Std_WTA = sqrt((1/(float)total_number_of_received_process)*sum);
+    fprintf(perfFile, "Std WTA = %.2f\n",Std_WTA);
+    fflush(0);
+    fclose(perfFile);
+    return;
 }
 
 //handler_notify_scheduler_I_terminated
@@ -777,8 +759,6 @@ void ProcessTerminates(int signum)
     //should we check on the total number of processes and if it equals 0 then terminate the scheduler
 
     printf("\n after process terminates-------------------------\n");
-    //int dummy=getClk();
-    //while(dummy == getClk());
     if_termination = true;
     signal(SIGUSR2, ProcessTerminates);
     
@@ -822,7 +802,7 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
 
       
 
-            if (algo==0)
+            if (algo == 0)
                 pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
             else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
                 #if (WARNINGS == 1)
