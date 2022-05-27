@@ -24,7 +24,7 @@ int main(int argc, char * argv[])
     #if (HANDLERS == 1)
     signal(SIGINT, cleanup);
     #endif
-    int clk = 0;
+    int clk = -1;
     //Create shared memory for one integer variable 4 bytes
     key_t key = ftok("key.txt" ,67);
     shmid = shmget(key, 4, IPC_CREAT | 0644);
