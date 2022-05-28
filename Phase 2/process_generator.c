@@ -45,7 +45,7 @@ int main(int argc, char * argv[])
     // }
 
     #if (NOTIFICATION == 1)
-    printf("Notification (Process_generator) : Message Queue ID = %d\n", msg_id);
+    // printf("Notification (Process_generator) : Message Queue ID = %d\n", msg_id);
     #endif
 
     MsgBuf msgbuf;
@@ -53,9 +53,6 @@ int main(int argc, char * argv[])
     #if (HANDLERS == 1)
     signal(SIGINT, clearResources);
     #endif
-
-
-
 
 
 /* TODO Initialization */
@@ -86,8 +83,7 @@ int main(int argc, char * argv[])
     }
 
 
-    printf("the length of the queue is : %d \n", pq_getLength(&processQ));
-
+    // printf("the length of the queue is : %d \n", pq_getLength(&processQ));
 
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
     int clkPid;
@@ -130,7 +126,7 @@ int main(int argc, char * argv[])
         if(execl("./scheduler.out", "scheduler.out", &pNum, &algo, &Quantum, (char *) NULL) == -1)
         {
             perror("Error in execl for scheduler forking\n");
-            printf("\nerror -------------------------\n\n");
+            // printf("\nerror -------------------------\n\n");
         }
             
     }
@@ -193,6 +189,7 @@ int main(int argc, char * argv[])
             msgbuf.waiting_start_time = ptr->waitingTime;
             msgbuf.running_start_time = ptr->running_start_time;
             msgbuf.arrivalTime = ptr->arrivalTime;
+            msgbuf.sizeNeeded = ptr->sizeNeeded;
             msgbuf.state = READY;
             //printf("\nProcess_generator: I sent!\n");
             int sendvalue = msgsnd(msg_id, &msgbuf, sizeof(msgbuf) - sizeof(int), !(IPC_NOWAIT));
@@ -200,7 +197,7 @@ int main(int argc, char * argv[])
                 printf("Error in sending!\n");
             else{
                     if_fill_q = true;
-                    printf("i send to scheduler a process with arrival = %d\n", msgbuf.arrivalTime);
+                    printf("I sent to scheduler a process with arrival = %d\n", msgbuf.arrivalTime);
 
                 }
                 if(pq_isEmpty(&processQ)) break;
@@ -209,12 +206,12 @@ int main(int argc, char * argv[])
         if(if_fill_q)
         {
              int ifsent = kill(scdPid, SIGUSR1);
-            // if(ifsent == 0)
-            // {
-            //     printf("child id : %d\n", scdPid);
-            //     printf("I send signal to my child scheduler!\n");
+            if(ifsent == 0)
+            {
+                // printf("Child id : %d\n", scdPid);
+                printf("I send signal to my child scheduler!\n");
 
-            // }
+            }
 
         }
        

@@ -11,11 +11,11 @@ LinkedList* ll_constructor(void)
 }
 
 /* Create a new node, if there is no next, you can pass NULL */
-ll_Node* ll_newNode(Segment* data, Segment** next)
+ll_Node* ll_newNode(Segment* data, ll_Node* next)
 {
     ll_Node* ll_node = (ll_Node*)malloc(sizeof(ll_Node));
     ll_node->data = data;
-    ll_node->next = NULL;  //to ask ? -------------------------------------------------------Menna
+    ll_node->next = next;
 
     return ll_node;
 }

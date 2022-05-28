@@ -15,15 +15,15 @@ int memory_size = 1024;
 
     /* Free Lists */
 LinkedList *memory[9];
-LinkedList *_1KB_segments;
-LinkedList *_2KB_segments;
-LinkedList *_4KB_segments;
-LinkedList *_8KB_segments;
-LinkedList *_16KB_segments;
-LinkedList *_32KB_segments;
-LinkedList *_64KB_segments;
-LinkedList *_128KB_segments;
-LinkedList *_256KB_segments;
+LinkedList *_1B_segments;
+LinkedList *_2B_segments;
+LinkedList *_4B_segments;
+LinkedList *_8B_segments;
+LinkedList *_16B_segments;
+LinkedList *_32B_segments;
+LinkedList *_64B_segments;
+LinkedList *_128B_segments;
+LinkedList *_256B_segments;
 /*****************************/
 
 
@@ -232,7 +232,7 @@ int main(int argc, char * argv[])
     // {
         
     algorithm = (argv[2][0] -'0')-1;
-      printf(".............%d\n",algorithm) ; 
+      // printf(".............%d\n",algorithm) ; 
     if(algorithm == 2){
         //RR_ALGORITHM;
         if(argc < 4) { perror("Too few CLA!!"); return -1;}
@@ -240,7 +240,7 @@ int main(int argc, char * argv[])
         Q = 0;
         while(argv[3][i])
             Q = Q * 10 + (argv[3][i++] - '0');
-        printf("\nquantum: %d\n", Q);
+        // printf("\nquantum: %d\n", Q);
         // break;
         // default:
         // perror("undefined algorithm");
@@ -299,9 +299,9 @@ void RR(int quantum)
     //printf("----------the quantum %d\n", quantum);
     while(total_number_of_processes)
     {
-        printf("###############################################################\n");
-        printf("Total Number of processes until now: %d\n", pq_getLength(&readyQ));
-        printf("###############################################################\n");
+        // printf("###############################################################\n");
+        // printf("Total Number of processes until now: %d\n", pq_getLength(&readyQ));
+        // printf("###############################################################\n");
 
         //handler_notify_scheduler_new_process_has_arrived(0);
         //printf("\ni am here -------------------------------------\n");
@@ -409,11 +409,11 @@ void RR(int quantum)
                 else{
                     //wake it up
                     //*shmRemainingtime = running->remainingTime;
-                    printf("---------------------old remaining : %d\n", *shmRemainingtime);
+                    // printf("---------------------old remaining : %d\n", *shmRemainingtime);
                     remain_beg = running->remainingTime;
                     *shmRemainingtime = running->remainingTime;
                     kill(running->pid, SIGCONT); //TO ASK
-                    printf("---------------------new remaining : %d\n", *shmRemainingtime);
+                    // printf("---------------------new remaining : %d\n", *shmRemainingtime);
                     running->remainingTime == *shmRemainingtime;
                     running->state = RUNNING;
                     running->running_start_time = getClk();
@@ -435,7 +435,7 @@ void RR(int quantum)
 
         
         updateInformation();
-        printf("\nclk = %d   getclk = %d\n", clk, getClk());
+        // printf("\nclk = %d   getclk = %d\n", clk, getClk());
         while(clk == getClk());  // && !pq_isEmpty(&readyQ) && running
         // {
         //     if(!pq_isEmpty(&readyQ) && was_empty)
@@ -457,7 +457,7 @@ void RR(int quantum)
 /* Warning: Under development */
 void HPF(void)
 {
-    printf("in hpf.............%d\n",algorithm) ; 
+    // printf("in hpf.............%d\n",algorithm) ; 
     int pid;
      clk = getClk();
     int pr;
@@ -468,9 +468,9 @@ void HPF(void)
     while(total_number_of_processes)
     {
        // down(sem1);
-        printf("###############################################################\n");
-        printf("ReadyQ length until now: %d\n", pq_getLength(&readyQ));
-        printf("###############################################################\n");
+        // printf("###############################################################\n");
+        // printf("ReadyQ length until now: %d\n", pq_getLength(&readyQ));
+        // printf("###############################################################\n");
 
         if(running)
         {
@@ -499,7 +499,7 @@ void HPF(void)
                 
 
             
-            printf("if ruuning block");
+            // printf("if ruuning block");
             
 
         }
@@ -534,7 +534,7 @@ void HPF(void)
                 //updateInformation();
                 
             }
-            printf("if pq peek block");
+            // printf("if pq peek block");
         }
         else
             total_CPU_idle_time++;
@@ -562,7 +562,7 @@ void HPF(void)
 }
 void SRTN(void)
 {
-    printf("heeeeeeeeeeeeeeeeeeeeeeeere");
+    // printf("heeeeeeeeeeeeeeeeeeeeeeeere");
     fflush(0);
     int clk = getClk();
     int peek;
@@ -674,17 +674,17 @@ void updateInformation() {
 void write_in_logfile_start()
 {
     
-    printf("process pid = %d , process id = %d\n", running->pid, running->id);
-    fflush(0);
-    printf("At  time  %d  process  %d  started  arr  %d  total  %d  remain  %d  wait  %d\n",
-        running->running_start_time,
-        running->id,
-        running->arrivalTime,
-        running->burstTime,    //to make sure ?!
-        running->remainingTime,
-        running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
-    );
-    fflush(0);
+    // printf("process pid = %d , process id = %d\n", running->pid, running->id);
+    // fflush(0);
+    // printf("At  time  %d  process  %d  started  arr  %d  total  %d  remain  %d  wait  %d\n",
+    //     running->running_start_time,
+    //     running->id,
+    //     running->arrivalTime,
+    //     running->burstTime,    //to make sure ?!
+    //     running->remainingTime,
+    //     running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
+    // );
+    // fflush(0);
     fprintf(logFile,"At  time  %i  process  %i  started  arr  %i  total  %i  remain  %i  wait  %i\n",
     (*running).running_start_time,
     (*running).id,
@@ -698,15 +698,15 @@ void write_in_logfile_start()
 
 void write_in_logfile_resume()
 {
-    printf("\nAt  time  %i  process  %i  resumed  arr  %i  total  %i  remain  %i  wait  %i\n",
-        running->running_start_time,
-        running->id,
-        running->arrivalTime,
-        running->burstTime,    //to make sure ?!
-        running->remainingTime,
-        running->waitingTime
-    );
-    fflush(0);
+    // printf("\nAt  time  %i  process  %i  resumed  arr  %i  total  %i  remain  %i  wait  %i\n",
+    //     running->running_start_time,
+    //     running->id,
+    //     running->arrivalTime,
+    //     running->burstTime,    //to make sure ?!
+    //     running->remainingTime,
+    //     running->waitingTime
+    // );
+    // fflush(0);
     fprintf(logFile, "At  time  %i  process  %i  resumed  arr  %i  total  %i  remain  %i  wait  %i\n",
         running->running_start_time,
         running->id,
@@ -720,15 +720,15 @@ void write_in_logfile_resume()
 
 void write_in_logfile_stopped()
 {
-    printf("\nAt  time  %d  process  %d  stopped  arr  %d  total  %d  remain  %d  wait  %d\n",
-        running->waiting_start_time,
-        running->id,
-        running->arrivalTime,
-        running->burstTime,    //to make sure ?!
-        running->remainingTime,
-        running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
-    );
-    fflush(0);
+    // printf("\nAt  time  %d  process  %d  stopped  arr  %d  total  %d  remain  %d  wait  %d\n",
+    //     running->waiting_start_time,
+    //     running->id,
+    //     running->arrivalTime,
+    //     running->burstTime,    //to make sure ?!
+    //     running->remainingTime,
+    //     running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
+    // );
+    // fflush(0);
     fprintf(logFile, "At  time  %i  process  %i  stopped  arr  %i  total  %i  remain  %i  wait  %i\n",
         running->waiting_start_time,
         running->id,
@@ -743,18 +743,18 @@ void write_in_logfile_stopped()
 void write_in_logfile_finished()
 {
     int clk = getClk();
-    printf("\nAt  time  %d  process  %d  finished  arr  %d  total  %d  remain  %d  wait  %d  TA  %d  WTA  %f\n",
-        clk,
-        running->id,
-        running->arrivalTime,
-        running->burstTime,    //to make sure ?!
-        running->remainingTime,
-        running->waitingTime ,  //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
+    // printf("\nAt  time  %d  process  %d  finished  arr  %d  total  %d  remain  %d  wait  %d  TA  %d  WTA  %f\n",
+    //     clk,
+    //     running->id,
+    //     running->arrivalTime,
+    //     running->burstTime,    //to make sure ?!
+    //     running->remainingTime,
+    //     running->waitingTime ,  //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
 
-        clk - running->arrivalTime,  //finish - arrival
-        (float)(clk - running->arrivalTime) / running->burstTime  //to ask (float)
-    );
-    fflush(0);
+    //     clk - running->arrivalTime,  //finish - arrival
+    //     (float)(clk - running->arrivalTime) / running->burstTime  //to ask (float)
+    // );
+    // fflush(0);
     fprintf(logFile, "At  time  %i  process  %i  finished  arr  %i  total  %i  remain  %i  wait  %i  TA  %i  WTA  %.2f\n",
         clk,
         running->id,
@@ -777,7 +777,7 @@ void write_in_logfile_finished()
 void write_in_perffile()
 {
 
-    printf("\ntotal_CPU_idle_time = %d\n", total_CPU_idle_time);
+    // printf("\ntotal_CPU_idle_time = %d\n", total_CPU_idle_time);
     total_CPU_idle_time--;
 
     perfFile = fopen("Scheduler.perf", "w");
@@ -803,9 +803,12 @@ void write_in_perffile()
 //handler_notify_scheduler_I_terminated
 void ProcessTerminates(int signum)
 {//down(sem1);
-    printf("\n a process terminates\n");
+    // printf("\n a process terminates\n");
     //TODO
     //implement what the scheduler should do when it gets notifies that a process is finished
+    
+    bool isMerged = memoryManage(false, &Process_Table[current_process_id]);
+    
     running->remainingTime = *shmRemainingtime;
     write_in_logfile_finished();
     //scheduler should delete its data from the process table
@@ -817,18 +820,17 @@ void ProcessTerminates(int signum)
     //to ask
     //should we check on the total number of processes and if it equals 0 then terminate the scheduler
 
-    printf("\n after process terminates-------------------------\n");
+    // printf("\n after process terminates-------------------------\n");
     //int dummy=getClk();
     //while(dummy == getClk());
     if_termination = true;
     signal(SIGUSR2, ProcessTerminates);
 
-    bool isMerged = memoryManage(false, &Process_Table[current_process_id]);
 
-    if (isMerged)
-        printf("Process %d is deallocated successfully! and Merging is happened!\n", Process_Table[current_process_id].pid);
-    else
-        printf("Process %d is deallocated successfully! and Merging is not happened!\n", Process_Table[current_process_id].pid);
+    // if (isMerged)
+    //     printf("Process %d is deallocated successfully! and Merging is happened!\n", Process_Table[current_process_id].pid);
+    // else
+    //     printf("Process %d is deallocated successfully! and Merging is not happened!\n", Process_Table[current_process_id].pid);
 
     Process *process;
     bool canBeAllocated = false;
@@ -853,6 +855,7 @@ void ProcessTerminates(int signum)
             Process_Table[process->id].arrivalTime = process->arrivalTime;
             Process_Table[process->id].sizeNeeded = process->sizeNeeded;
             Process_Table[process->id].state = process->state;
+            Process_Table[process->id].segment = process->segment;
 
 
             if (algo == 0)
@@ -867,7 +870,7 @@ void ProcessTerminates(int signum)
                 #if (WARNINGS == 1)
                 #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
                 #endif
-                printf("i am pushing here \n");
+                // printf("i am pushing here \n");
                 RR_Priority++;
                 pq_push(&readyQ, &Process_Table[process->id], RR_Priority);
             }
@@ -893,10 +896,11 @@ void ProcessTerminates(int signum)
         }
         
     }
-
+    
     /* Return all process to the waiting Queue */
-    while (pq_isEmpty(&tempQ))
+    while (tempQ.num_of_nodes > 0)
     {
+        printf("Debugging at line 903: tempQ's size = %d\n", tempQ.num_of_nodes);
         process = pq_pop(&tempQ);
 
         if (algo == 0)
@@ -929,20 +933,19 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
     for(int i=0; i<num_messages;i++)
         {
             receiveValue = msgrcv(msg_id, ADDRESS(msgbuf), sizeof(msgbuf) - sizeof(int), 7, (!IPC_NOWAIT));
-        printf("\nreceiveValue : %d \n", receiveValue);
+        // printf("\nreceiveValue : %d \n", receiveValue);
         
 
         if(receiveValue != -1)
         {
-            printf("\nScehduler: I received!\n");
-            fflush(0);
+            // printf("\nScehduler: I received!\n");
+            // fflush(0);
             #if (NOTIFICATION == 1)
-            printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
+            // printf("Notification (Scheduler): { \nProcess ID: %d,\nProcessArrival Time: %d\n}\n", msgbuf.id, msgbuf.arrivalTime);
             #endif
             total_number_of_received_process += 1;
 
             Process* temp_process = (Process*)malloc(sizeof(Process));
-
             (*temp_process).id = msgbuf.id;
             (*temp_process).waitingTime = msgbuf.waitingTime;
             (*temp_process).remainingTime = msgbuf.remainingTime;
@@ -954,6 +957,9 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
             (*temp_process).arrivalTime = msgbuf.arrivalTime;
             (*temp_process).state = msgbuf.state;
             (*temp_process).sizeNeeded = msgbuf.sizeNeeded;
+
+            printf("At time %d process %d has arrived!\n", getClk(), temp_process->id);
+            fflush(0);
 
             bool canBeAllocated = memoryManage(true, temp_process);
 
@@ -970,23 +976,24 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
                 Process_Table[temp_process->id].arrivalTime = (*temp_process).arrivalTime;
                 Process_Table[temp_process->id].sizeNeeded = (*temp_process).sizeNeeded;
                 Process_Table[temp_process->id].state = (*temp_process).state;
+                Process_Table[temp_process->id].segment = (*temp_process).segment;
 
-
-                if (algo==0)
-                    pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
+                if (algo==0) {
+                    pq_push(&readyQ, &Process_Table[temp_process->id], Process_Table[temp_process->id].priority);
+                }
                 else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
                     #if (WARNINGS == 1)
                     #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
                     #endif
-                    pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].remainingTime);
+                    pq_push(&readyQ, &Process_Table[temp_process->id], Process_Table[temp_process->id].remainingTime);
                 }
                 else if (algo == 2) {
                     #if (WARNINGS == 1)
                     #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
                     #endif
-                    printf("i am pushing here \n");
+                    // printf("i am pushing here \n");
                     RR_Priority++;
-                    pq_push(&readyQ, &Process_Table[msgbuf.id], RR_Priority);
+                    pq_push(&readyQ, &Process_Table[temp_process->id], RR_Priority);
                 }
             }
             else
@@ -1010,7 +1017,7 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
 
             /* Parent is systemd, which means the process_generator is died! */
             if (getppid() == 1) {
-                printf("My father is died!\n");
+                // printf("My father is died!\n");
                 fflush(0);
                 process_generator_finished = true;
             }
@@ -1035,59 +1042,63 @@ bool memoryManage(bool isAllocating, Process* process)
     }
     else
     {
+        fflush(0);
         int id_of_category = ceil(log(process->segment->size) / log(2));
-        return memoryDeallocate(process->segment, id_of_category);
+        bool check = memoryDeallocate(process->segment, id_of_category);
+        printf("At time %d freed %d bytes from proccess %d from %d to %d\n", getClk(), process->segment->size, process->id, process->segment->start_address, process->segment->end_address);
+        fflush(0);
+        return check;
     }
 }
 
 bool memoryInitialize()
 {
-    _1KB_segments = ll_constructor();
-    _2KB_segments = ll_constructor();
-    _4KB_segments = ll_constructor();
-    _8KB_segments = ll_constructor();
-    _16KB_segments = ll_constructor();
-    _32KB_segments = ll_constructor();
-    _64KB_segments = ll_constructor();
-    _128KB_segments = ll_constructor();
-    _256KB_segments = ll_constructor();
+    _1B_segments = ll_constructor();
+    _2B_segments = ll_constructor();
+    _4B_segments = ll_constructor();
+    _8B_segments = ll_constructor();
+    _16B_segments = ll_constructor();
+    _32B_segments = ll_constructor();
+    _64B_segments = ll_constructor();
+    _128B_segments = ll_constructor();
+    _256B_segments = ll_constructor();
 
-    memory[0] = _1KB_segments;
-    memory[1] = _2KB_segments;
-    memory[2] = _4KB_segments;
-    memory[3] = _8KB_segments;
-    memory[4] = _16KB_segments;
-    memory[5] = _32KB_segments;
-    memory[6] = _64KB_segments;
-    memory[7] = _128KB_segments;
-    memory[8] = _256KB_segments;
-
-    Segment *segment_1 = (Segment*)malloc(sizeof(Segment));
-    segment_1->size = 256;
-    segment_1->start_address = 0;
-    segment_1->end_address = 255;
-    ll_Node* _256KB_segment_1 = ll_newNode(segment_1, nullptr);
-
-    Segment *segment_2 = (Segment*)malloc(sizeof(Segment));
-    segment_2->size = 256;
-    segment_2->start_address = 256;
-    segment_2->end_address = 511;
-    ll_Node* _256KB_segment_2 = ll_newNode(segment_2, &segment_1);  //changed
-
-    Segment *segment_3 = (Segment*)malloc(sizeof(Segment));
-    segment_3->size = 256;
-    segment_3->start_address = 512;
-    segment_3->end_address = 767;
-    ll_Node* _256KB_segment_3 = ll_newNode(segment_3, &segment_2);
+    memory[0] = _1B_segments;
+    memory[1] = _2B_segments;
+    memory[2] = _4B_segments;
+    memory[3] = _8B_segments;
+    memory[4] = _16B_segments;
+    memory[5] = _32B_segments;
+    memory[6] = _64B_segments;
+    memory[7] = _128B_segments;
+    memory[8] = _256B_segments;
 
     Segment *segment_4 = (Segment*)malloc(sizeof(Segment));
     segment_4->size = 256;
-    segment_4->start_address = 768;
-    segment_4->end_address = 1023;
-    ll_Node* _256KB_segment_4 = ll_newNode(segment_4, &segment_3);
+    segment_4->start_address = 768; // 768
+    segment_4->end_address = 1023; // 1023
+    ll_Node* _256B_segment_4 = ll_newNode(segment_4, nullptr);
 
-    _256KB_segments->num_of_nodes += 4;
-    _256KB_segments->Head = _256KB_segment_4;
+    Segment *segment_3 = (Segment*)malloc(sizeof(Segment));
+    segment_3->size = 256;
+    segment_3->start_address = 512; // 512
+    segment_3->end_address = 767; // 767
+    ll_Node* _256B_segment_3 = ll_newNode(segment_3, _256B_segment_4);  //changed
+
+    Segment *segment_2 = (Segment*)malloc(sizeof(Segment));
+    segment_2->size = 256;
+    segment_2->start_address = 256; // 256
+    segment_2->end_address = 511; // 511
+    ll_Node* _256B_segment_2 = ll_newNode(segment_2, _256B_segment_3);
+
+    Segment *segment_1 = (Segment*)malloc(sizeof(Segment));
+    segment_1->size = 256;
+    segment_1->start_address = 0; // 0
+    segment_1->end_address = 255; // 255
+    ll_Node* _256B_segment_1 = ll_newNode(segment_1, _256B_segment_2);
+
+    _256B_segments->num_of_nodes += 4;
+    _256B_segments->Head = _256B_segment_1;
 }
 
 void segmentation(int id_of_category, int target_of_category, Process* process)
@@ -1099,10 +1110,10 @@ void segmentation(int id_of_category, int target_of_category, Process* process)
         memory[id_of_category]->Head = memory[id_of_category]->Head->next;
         node->next = nullptr;
 
-        memory[id_of_category]->num_of_nodes += 1;
+        memory[id_of_category]->num_of_nodes -= 1;
+
 
         process->segment = node->data;
-        printf("Process %d is allocated successfully!\n", process->pid);
         free(node);
 
         return;
@@ -1122,48 +1133,70 @@ void segmentation(int id_of_category, int target_of_category, Process* process)
     */
 
     ll_Node* old_segment = memory[id_of_category]->Head;
-
+    ll_Node* next_segment = old_segment->next;
     Segment *segment_1 = (Segment*)malloc(sizeof(Segment));
     segment_1->size = old_segment->data->size / 2;
     segment_1->end_address = old_segment->data->end_address;
-    segment_1->start_address = segment_1->end_address - segment_1->size;
-    ll_Node* new_segment_1 = ll_newNode(segment_1, &memory[id_of_category-1]->Head->data); //changed ->data menna
+    segment_1->start_address = segment_1->end_address - segment_1->size + 1;
+    ll_Node* new_segment_1;
+
+    /* Case there are some nodes in the list */
+    if (memory[id_of_category-1]->Head != nullptr)
+    {
+        new_segment_1 = ll_newNode(segment_1, memory[id_of_category-1]->Head); //changed ->data menna
+    }
+    /* Case there are some nodes in the list */
+    else
+    {
+        new_segment_1 = ll_newNode(segment_1, nullptr);
+        memory[id_of_category-1]->Head = new_segment_1;
+    }
 
     Segment *segment_2 = (Segment*)malloc(sizeof(Segment));
     segment_2->size = segment_1->size;
     segment_2->start_address = old_segment->data->start_address;
     segment_2->end_address = segment_1->start_address - 1;
-    ll_Node* new_segment_2 = ll_newNode(segment_2, &memory[id_of_category-1]->Head->data); //changed ->data menna
+    ll_Node* new_segment_2 = ll_newNode(segment_2, memory[id_of_category-1]->Head); //changed ->data menna
+    memory[id_of_category-1]->Head = new_segment_2;
 
     free(old_segment->data);
     free(old_segment);
 
-    segmentation(id_of_category--, target_of_category, process);
+    memory[id_of_category]->Head = next_segment;
+    // printf("Debugging at line 1160: %d-segment and starts at %d\n", memory[id_of_category]->Head->data->size, memory[id_of_category]->Head->data->start_address);
+
+    segmentation(id_of_category-1, target_of_category, process);
 }
 
 bool memoryAllocate(Process* process)
 {
-    // 85KB
+    // printf("Debugging at Line 1167: I am tring to allocate!\n");
     int size = process->sizeNeeded;
     int target_id_of_category = ceil(log(size) / log(2));
     int id_of_category = target_id_of_category;
     bool check = false;
-
     /* Check of my category, if there are free segments */
     while (id_of_category <= 8)
     {
+        // printf("Debugging at Line 1174: id -> %d\n", id_of_category);
+        // printf("Debugging at Line 1175: target -> %d\n", target_id_of_category);
         check = ll_isEmpty(memory[id_of_category]);
 
         if (!check)
         {
             segmentation(id_of_category, target_id_of_category, process);
+
             memory_size -= size;
+            printf("At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), process->segment->size, process->id, process->segment->start_address, process->segment->end_address);
+            fflush(0);
             return true;
         }
         else
             id_of_category++;
     }
 
+    printf("At time %d allocating Process %d is failed!\n", getClk() ,process->pid);
+    fflush(0);
     return false;
 }
 
@@ -1208,6 +1241,7 @@ Segment* mergeSegments(Segment* left, Segment* right)
         }
     }
 
+    printf("At time %d merging %d-segment starting at %d and %d into %d-segment at %d\n", getClk(), left->size, left->start_address, right->start_address, newSegment->size, newSegment->start_address);
     return newSegment;
 }
 
@@ -1226,7 +1260,7 @@ bool memoryDeallocate(Segment* segment, int id_of_category)
     // If Even -> Merge with right
     // If Odd -> Merge with left
 
-    if (id_of_category == 9)
+    if (id_of_category == 8)
         return true;
 
     bool check = (segment->start_address / segment->size) % 2;

@@ -5,10 +5,6 @@
 #include <stdlib.h>
 #include "headers.h"
 
-#define NULL ((void *)0)
-
-#define nullptr ((void*)0)
-
 /* This is the node definition */
 typedef struct ll_node {
     Segment* data;
@@ -27,7 +23,7 @@ typedef struct {
 LinkedList* ll_constructor(void);
 
 /* Create a new node, if there is no next, you can pass NULL */
-ll_Node* ll_newNode(Segment* data, Segment** next);
+ll_Node* ll_newNode(Segment* data, ll_Node* next);
 
 /* Insert a new element at the front of the list */
 void ll_insert(LinkedList *ll, Segment* data, int key);

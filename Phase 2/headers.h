@@ -28,6 +28,8 @@
 
 #define ADDRESS(element) (&(element))
 
+#define nullptr ((void*)0)
+
 typedef short bool;
 #define true 1
 #define false 0
