@@ -15,7 +15,7 @@ ll_Node* ll_newNode(Segment* data, Segment** next)
 {
     ll_Node* ll_node = (ll_Node*)malloc(sizeof(ll_Node));
     ll_node->data = data;
-    ll_node->next = NULL;
+    ll_node->next = NULL;  //to ask ? -------------------------------------------------------Menna
 
     return ll_node;
 }
