@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <math.h>
 
 /* Memory Management Segment */
 int memory_size = 1024;
@@ -43,6 +44,16 @@ int total_number_of_processes;
 int RR_Priority;
 bool if_termination;
 int total_CPU_idle_time;
+int number_of_terminated_processes;
+
+
+float CPU_utilization;
+float Avg_WTA;
+float Avg_Waiting;
+float Std_WTA;
+float total_Waiting;
+float total_WTA;
+float* WTA;
 
 bool ifReceived = false;
 bool process_generator_finished = false;
@@ -116,6 +127,7 @@ void write_in_logfile_start();
 void write_in_logfile_stopped();
 void write_in_logfile_resume();
 void write_in_logfile_finished();
+void write_in_perffile();
 
 Segment* mergeSegments(Segment* left, Segment* right);
 bool memoryInitialize();
@@ -151,6 +163,16 @@ int main(int argc, char * argv[])
  
 
     idleProcess.id = 0;
+    idleProcess.id = 0;
+    CPU_utilization = 0;
+    Avg_WTA = 0;
+    Avg_Waiting = 0;
+    Std_WTA = 0;
+    total_Waiting = 0;
+    total_WTA = 0;
+    number_of_terminated_processes = 0;
+    WTA = malloc(sizeof(float) * total_number_of_processes);
+
 
     //the remainging time of the current running process
     key_id = ftok("key.txt", 65);
@@ -257,6 +279,7 @@ int main(int argc, char * argv[])
 
 
     fclose(logFile);
+    write_in_perffile();
     destroyClk(true);
     // return 0;
 }
@@ -744,12 +767,38 @@ void write_in_logfile_finished()
         (float)(clk - running->arrivalTime) / running->burstTime  //to ask (float)
     );
     fflush(0);
+    WTA[number_of_terminated_processes] = (float)(clk - running->arrivalTime) / running->burstTime;
+    total_WTA += WTA[number_of_terminated_processes];
+    total_Waiting += running->waitingTime;
+    number_of_terminated_processes++;
 }
 
-void write_in_perf_file()
+
+void write_in_perffile()
 {
-    float CPU_utilization = (getClk() - (total_CPU_idle_time)) / (float)getClk();
+
+    printf("\ntotal_CPU_idle_time = %d\n", total_CPU_idle_time);
+    total_CPU_idle_time--;
+
+    perfFile = fopen("Scheduler.perf", "w");
+    CPU_utilization = (1-((float)total_CPU_idle_time/getClk()))*100.0;
+    fprintf(perfFile, "CPU utilization = %.2f%%\n",CPU_utilization);
+    Avg_WTA = total_WTA/total_number_of_received_process;
+    fprintf(perfFile, "Avg WTA = %.2f\n",Avg_WTA);
+    Avg_Waiting = (float)total_Waiting/total_number_of_received_process;
+    fprintf(perfFile, "Avg Waiting = %.2f\n",Avg_Waiting);
+    float sum = 0;
+    for(int i = 0; i < total_number_of_received_process;i++)
+    {
+        sum += ((WTA[i]-Avg_WTA)*(WTA[i]-Avg_WTA));
+    }
+    Std_WTA = sqrt((1/(float)total_number_of_received_process)*sum);
+    fprintf(perfFile, "Std WTA = %.2f\n",Std_WTA);
+    fflush(0);
+    fclose(perfFile);
+    return;
 }
+
 
 //handler_notify_scheduler_I_terminated
 void ProcessTerminates(int signum)
@@ -828,18 +877,18 @@ void ProcessTerminates(int signum)
         else
         {
             if (algo == 0)
-                pq_push(&tempQ, &process, (*process).priority);
+                pq_push(&tempQ, process, (*process).priority);
             else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
                 #if (WARNINGS == 1)
                 #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
                 #endif
-                pq_push(&tempQ, &process, (*process).remainingTime);
+                pq_push(&tempQ, process, (*process).remainingTime);
             }
             else if (algo == 2) {
                 #if (WARNINGS == 1)
                 #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
                 #endif
-                pq_push(&tempQ, &process, getClk());
+                pq_push(&tempQ, process, getClk());
             }
         }
         
@@ -851,18 +900,18 @@ void ProcessTerminates(int signum)
         process = pq_pop(&tempQ);
 
         if (algo == 0)
-            pq_push(&waitingQ, &process, (*process).priority);
+            pq_push(&waitingQ, process, (*process).priority);
         else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
             #if (WARNINGS == 1)
             #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
             #endif
-            pq_push(&waitingQ, &process, (*process).remainingTime);
+            pq_push(&waitingQ, process, (*process).remainingTime);
         }
         else if (algo == 2) {
             #if (WARNINGS == 1)
             #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
             #endif
-            pq_push(&waitingQ, &process, getClk());
+            pq_push(&waitingQ, process, getClk());
         }
     }
 }
@@ -943,18 +992,18 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
             else
             {
                 if (algo == 0)
-                    pq_push(&waitingQ, &temp_process, (*temp_process).priority);
+                    pq_push(&waitingQ, temp_process, (*temp_process).priority);
                 else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
                     #if (WARNINGS == 1)
                     #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
                     #endif
-                    pq_push(&waitingQ, &temp_process, (*temp_process).remainingTime);
+                    pq_push(&waitingQ, temp_process, (*temp_process).remainingTime);
                 }
                 else if (algo == 2) {
                     #if (WARNINGS == 1)
                     #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
                     #endif
-                    pq_push(&waitingQ, &temp_process, getClk());
+                    pq_push(&waitingQ, temp_process, getClk());
                 }
             }
 
@@ -1023,19 +1072,19 @@ bool memoryInitialize()
     segment_2->size = 256;
     segment_2->start_address = 256;
     segment_2->end_address = 511;
-    ll_Node* _256KB_segment_2 = ll_newNode(segment_2, _256KB_segment_1);
+    ll_Node* _256KB_segment_2 = ll_newNode(segment_2, &segment_1);  //changed
 
     Segment *segment_3 = (Segment*)malloc(sizeof(Segment));
     segment_3->size = 256;
     segment_3->start_address = 512;
     segment_3->end_address = 767;
-    ll_Node* _256KB_segment_3 = ll_newNode(segment_3, _256KB_segment_2);
+    ll_Node* _256KB_segment_3 = ll_newNode(segment_3, &segment_2);
 
     Segment *segment_4 = (Segment*)malloc(sizeof(Segment));
     segment_4->size = 256;
     segment_4->start_address = 768;
     segment_4->end_address = 1023;
-    ll_Node* _256KB_segment_4 = ll_newNode(segment_4, _256KB_segment_3);
+    ll_Node* _256KB_segment_4 = ll_newNode(segment_4, &segment_3);
 
     _256KB_segments->num_of_nodes += 4;
     _256KB_segments->Head = _256KB_segment_4;
@@ -1078,13 +1127,13 @@ void segmentation(int id_of_category, int target_of_category, Process* process)
     segment_1->size = old_segment->data->size / 2;
     segment_1->end_address = old_segment->data->end_address;
     segment_1->start_address = segment_1->end_address - segment_1->size;
-    ll_Node* new_segment_1 = ll_newNode(segment_1, memory[id_of_category-1]->Head);
+    ll_Node* new_segment_1 = ll_newNode(segment_1, &memory[id_of_category-1]->Head->data); //changed ->data menna
 
     Segment *segment_2 = (Segment*)malloc(sizeof(Segment));
     segment_2->size = segment_1->size;
     segment_2->start_address = old_segment->data->start_address;
     segment_2->end_address = segment_1->start_address - 1;
-    ll_Node* new_segment_2 = ll_newNode(segment_2, memory[id_of_category-1]->Head);
+    ll_Node* new_segment_2 = ll_newNode(segment_2, &memory[id_of_category-1]->Head->data); //changed ->data menna
 
     free(old_segment->data);
     free(old_segment);
@@ -1132,7 +1181,7 @@ Segment* mergeSegments(Segment* left, Segment* right)
     ll_Node* previous = nullptr;
     ll_Node* walker = memory[id_of_old+1]->Head;
 
-    if (walker->data->start_address < node->data->end_address)
+    if (walker->data->start_address > node->data->end_address)    //changed to be < by menna
     {
         node->next = walker;
         memory[id_of_old+1]->Head = node;
@@ -1144,7 +1193,7 @@ Segment* mergeSegments(Segment* left, Segment* right)
             previous = walker;
             walker = walker->next;
 
-            if (walker->data->start_address < node->data->end_address)
+            if (walker->data->start_address > node->data->end_address)
             {
                 previous->next = node;
                 node->next = walker;
