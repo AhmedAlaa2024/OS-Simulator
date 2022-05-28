@@ -1,5 +1,4 @@
 #include "headers.h"
-#include "LinkedList.h"
 #include "priority_queue.h"
 #include <string.h>
 
@@ -8,29 +7,13 @@
 #include <sys/types.h>
 #include <signal.h>
 #include <stdlib.h>
-
-/* Memory Management Segment */
-int memory_size = 1024;
-
-    /* Free Lists */
-LinkedList *memory[9];
-LinkedList *_1KB_segments;
-LinkedList *_2KB_segments;
-LinkedList *_4KB_segments;
-LinkedList *_8KB_segments;
-LinkedList *_16KB_segments;
-LinkedList *_32KB_segments;
-LinkedList *_64KB_segments;
-LinkedList *_128KB_segments;
-LinkedList *_256KB_segments;
-/*****************************/
+#include <math.h>
 
 
 FILE* logFile, *perfFile;
 int algorithm;
 int algo;
 PriorityQueue readyQ;
-PriorityQueue waitingQ;
 Process* Process_Table;
 Process* running = NULL;
 Process idleProcess;
@@ -43,6 +26,16 @@ int total_number_of_processes;
 int RR_Priority;
 bool if_termination;
 int total_CPU_idle_time;
+int number_of_terminated_processes;
+
+
+float CPU_utilization;
+float Avg_WTA;
+float Avg_Waiting;
+float Std_WTA;
+float total_Waiting;
+float total_WTA;
+float* WTA;
 
 bool ifReceived = false;
 bool process_generator_finished = false;
@@ -116,19 +109,14 @@ void write_in_logfile_start();
 void write_in_logfile_stopped();
 void write_in_logfile_resume();
 void write_in_logfile_finished();
-
-Segment* mergeSegments(Segment* left, Segment* right);
-bool memoryInitialize();
-bool memoryAllocate(Process* process);
-bool memoryDeallocate(Segment* process, int id_of_category);
-bool memoryManage(bool isAllocating, Process* process);
+void write_in_perffile();
 
 int total_CPU_idle_time=0;
 int sem1;
 
 int main(int argc, char * argv[])
 {
-    memoryInitialize();
+
     
     initClk();
     total_CPU_idle_time=0;
@@ -151,6 +139,14 @@ int main(int argc, char * argv[])
  
 
     idleProcess.id = 0;
+    CPU_utilization = 0;
+    Avg_WTA = 0;
+    Avg_Waiting = 0;
+    Std_WTA = 0;
+    total_Waiting = 0;
+    total_WTA = 0;
+    number_of_terminated_processes = 0;
+    WTA = malloc(sizeof(float) * total_number_of_processes);
 
     //the remainging time of the current running process
     key_id = ftok("key.txt", 65);
@@ -204,6 +200,10 @@ int main(int argc, char * argv[])
     // printf("argv[2]: %d\n", atoi(argv[2]));
     // printf("argv[3]: %d\n", atoi(argv[3]));
 
+
+
+    
+    
     if(argc < 3) { perror("Too few CLA!!"); return -1;}
 
     // switch (argv[2][0])
@@ -238,6 +238,8 @@ int main(int argc, char * argv[])
 
     while(pq_isEmpty(&readyQ)); //to guarantee that once the first process arrives it will begin at once not at the next sec
 
+    total_CPU_idle_time = getClk();
+
     if(algo== 2)
         RR(Q);
         
@@ -257,13 +259,15 @@ int main(int argc, char * argv[])
 
 
     fclose(logFile);
+
+    write_in_perffile();
+
     destroyClk(true);
     // return 0;
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//from the parent we will run each scheduler each clock cycle
 void RR(int quantum)
 {
     //printf("I am RR! \n");
@@ -280,10 +284,7 @@ void RR(int quantum)
         printf("Total Number of processes until now: %d\n", pq_getLength(&readyQ));
         printf("###############################################################\n");
 
-        //handler_notify_scheduler_new_process_has_arrived(0);
-        //printf("\ni am here -------------------------------------\n");
-
-        //printf("\ni am here \n");
+        
         if(running)
         {
 
@@ -302,7 +303,7 @@ void RR(int quantum)
 
             currentQuantum--;
             
-            //(*running).remainingTime = *shmRemainingtime;
+            
             running->cumulativeRunningTime++;
 
             //to avoid stopping the process after ending the quantum if it is the only process in the system
@@ -321,18 +322,10 @@ void RR(int quantum)
 
                 //send signal stop to this process and insert it back in the ready queue
                 running->waiting_start_time = getClk();
-                //down(sem);
-                //while(running->remainingTime == *shmRemainingtime);
-                //while(remain_beg - *shmRemainingtime == quantum);
+
                 kill(running->pid, SIGSTOP);
 
-                //running->remainingTime = *shmRemainingtime;
-
-                //termination occur ??
-                
-                // if(running->remainingTime == 0)
-                //     continue;
-                
+  
                 RR_Priority++;
                 pq_push(&readyQ, running, RR_Priority);
 
@@ -343,15 +336,13 @@ void RR(int quantum)
                 running = NULL;
 
                 continue;  //to make the next process begin exactly after the current is stopped
-                //printf("\ni am here after blocking a process--------------------------------------\n");
             }
         }
         else{
-            //printf("\ni am here -------------------------------------\n");
+            
             if(!pq_isEmpty(&readyQ))
             {
-                //printf("\ni am here -------------------------------------\n");
-                //if_termination = false;
+                
                 running = pq_pop(&readyQ);
                 current_process_id = running->id;
                 
@@ -394,7 +385,6 @@ void RR(int quantum)
                     running->remainingTime == *shmRemainingtime;
                     running->state = RUNNING;
                     running->running_start_time = getClk();
-                    //down(sem);
                     //*shmRemainingtime = running->remainingTime;
                     //currentQuantum--;
                     write_in_logfile_resume();
@@ -404,30 +394,18 @@ void RR(int quantum)
             {
                 total_CPU_idle_time++;
             }
-            // else
-            //     was_empty = true;
-
-
+            
         }
 
         
         updateInformation();
         printf("\nclk = %d   getclk = %d\n", clk, getClk());
         while(clk == getClk());  // && !pq_isEmpty(&readyQ) && running
-        // {
-        //     if(!pq_isEmpty(&readyQ) && was_empty)
-        //         break;
-        // }
+       
         clk = getClk();
 
         
 
-        // semun.val = 0; /* initial value of the semaphore, Binary semaphore */
-        // if (semctl(sem, 0, SETVAL, semun) == -1)
-        // {
-        //     perror("Error in semctl");
-        //     exit(-1);
-        // }
 
     }
 }
@@ -444,10 +422,11 @@ void HPF(void)
     bool ifUpdated = true;
     while(total_number_of_processes)
     {
-       // down(sem1);
-        printf("###############################################################\n");
-        printf("ReadyQ length until now: %d\n", pq_getLength(&readyQ));
-        printf("###############################################################\n");
+        printf("\ntotal_CPU_idle_time = %d\n", total_CPU_idle_time);
+
+        // printf("###############################################################\n");
+        // printf("ReadyQ length until now: %d\n", pq_getLength(&readyQ));
+        // printf("###############################################################\n");
 
         if(running)
         {
@@ -460,22 +439,7 @@ void HPF(void)
                 *shmRemainingtime=running->remainingTime;
                 running->cumulativeRunningTime++;
             }
-            // if(!ifUpdated)
-            //     updateInformation();
-
-            // if(running->remainingTime == 0)
-            // {
-            //     // if(firstTime == 0)
-            //     // {
-            //     //     updateInformation();
-            //     // }
-                
-            //     // firstTime++;
-            //     continue;
-            // }
-                
-
-            
+ 
             printf("if ruuning block");
             
 
@@ -508,7 +472,6 @@ void HPF(void)
                 running->running_start_time=getClk();
                 
                 write_in_logfile_start();
-                //updateInformation();
                 
             }
             printf("if pq peek block");
@@ -517,7 +480,7 @@ void HPF(void)
             total_CPU_idle_time++;
         
         
-        //ifUpdated = false;
+
         bool cont = false;
         while(clk == getClk())
         {
@@ -533,9 +496,9 @@ void HPF(void)
         updateInformation();
         clk=getClk();
 
-        //signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
+        
     }
-    int CPU_utilization=(1-(total_CPU_idle_time/getClk()))*100;
+    //int CPU_utilization=(1-(total_CPU_idle_time/getClk()))*100;
 }
 void SRTN(void)
 {
@@ -716,7 +679,6 @@ void write_in_logfile_stopped()
     );
     fflush(0);
 }
-
 void write_in_logfile_finished()
 {
     int clk = getClk();
@@ -744,11 +706,39 @@ void write_in_logfile_finished()
         (float)(clk - running->arrivalTime) / running->burstTime  //to ask (float)
     );
     fflush(0);
+    WTA[number_of_terminated_processes] = (float)(clk - running->arrivalTime) / running->burstTime;
+    total_WTA += WTA[number_of_terminated_processes];
+    total_Waiting += running->waitingTime;
+    number_of_terminated_processes++;
 }
+// void write_in_perf_file()
+// {
+//     float CPU_utilization = (getClk() - (total_CPU_idle_time)) / (float)getClk();
+// }
 
-void write_in_perf_file()
+void write_in_perffile()
 {
-    float CPU_utilization = (getClk() - (total_CPU_idle_time)) / (float)getClk();
+
+    printf("\ntotal_CPU_idle_time = %d\n", total_CPU_idle_time);
+    total_CPU_idle_time--;
+
+    perfFile = fopen("Scheduler.perf", "w");
+    CPU_utilization = (1-((float)total_CPU_idle_time/getClk()))*100.0;
+    fprintf(perfFile, "CPU utilization = %.2f%%\n",CPU_utilization);
+    Avg_WTA = total_WTA/total_number_of_received_process;
+    fprintf(perfFile, "Avg WTA = %.2f\n",Avg_WTA);
+    Avg_Waiting = (float)total_Waiting/total_number_of_received_process;
+    fprintf(perfFile, "Avg Waiting = %.2f\n",Avg_Waiting);
+    float sum = 0;
+    for(int i = 0; i < total_number_of_received_process;i++)
+    {
+        sum += ((WTA[i]-Avg_WTA)*(WTA[i]-Avg_WTA));
+    }
+    Std_WTA = sqrt((1/(float)total_number_of_received_process)*sum);
+    fprintf(perfFile, "Std WTA = %.2f\n",Std_WTA);
+    fflush(0);
+    fclose(perfFile);
+    return;
 }
 
 //handler_notify_scheduler_I_terminated
@@ -769,102 +759,9 @@ void ProcessTerminates(int signum)
     //should we check on the total number of processes and if it equals 0 then terminate the scheduler
 
     printf("\n after process terminates-------------------------\n");
-    //int dummy=getClk();
-    //while(dummy == getClk());
     if_termination = true;
     signal(SIGUSR2, ProcessTerminates);
-
-    bool isMerged = memoryManage(false, &Process_Table[current_process_id]);
-
-    if (isMerged)
-        printf("Process %d is deallocated successfully! and Merging is happened!\n", Process_Table[current_process_id].pid);
-    else
-        printf("Process %d is deallocated successfully! and Merging is not happened!\n", Process_Table[current_process_id].pid);
-
-    Process *process;
-    bool canBeAllocated = false;
-
-    PriorityQueue tempQ;
-
-    while(!pq_isEmpty(&waitingQ))
-    {
-        process = pq_pop(&waitingQ);
-        canBeAllocated = memoryManage(true, process);
-
-        if (canBeAllocated)
-        {
-            Process_Table[process->id].id = process->id;
-            Process_Table[process->id].waitingTime = process->waitingTime;
-            Process_Table[process->id].remainingTime = process->remainingTime;
-            Process_Table[process->id].burstTime = process->burstTime;
-            Process_Table[process->id].priority = process->priority;
-            Process_Table[process->id].cumulativeRunningTime = process->cumulativeRunningTime;
-            Process_Table[process->id].waiting_start_time = process->waiting_start_time;
-            Process_Table[process->id].running_start_time = process->running_start_time;
-            Process_Table[process->id].arrivalTime = process->arrivalTime;
-            Process_Table[process->id].sizeNeeded = process->sizeNeeded;
-            Process_Table[process->id].state = process->state;
-
-
-            if (algo == 0)
-                pq_push(&readyQ, &Process_Table[process->id], Process_Table[process->id].priority);
-            else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
-                #if (WARNINGS == 1)
-                #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-                #endif
-                pq_push(&readyQ, &Process_Table[process->id], Process_Table[process->id].remainingTime);
-            }
-            else if (algo == 2) {
-                #if (WARNINGS == 1)
-                #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-                #endif
-                printf("i am pushing here \n");
-                RR_Priority++;
-                pq_push(&readyQ, &Process_Table[process->id], RR_Priority);
-            }
-
-            break;
-        }
-        else
-        {
-            if (algo == 0)
-                pq_push(&tempQ, &process, (*process).priority);
-            else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
-                #if (WARNINGS == 1)
-                #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-                #endif
-                pq_push(&tempQ, &process, (*process).remainingTime);
-            }
-            else if (algo == 2) {
-                #if (WARNINGS == 1)
-                #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-                #endif
-                pq_push(&tempQ, &process, getClk());
-            }
-        }
-        
-    }
-
-    /* Return all process to the waiting Queue */
-    while (pq_isEmpty(&tempQ))
-    {
-        process = pq_pop(&tempQ);
-
-        if (algo == 0)
-            pq_push(&waitingQ, &process, (*process).priority);
-        else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
-            #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-            #endif
-            pq_push(&waitingQ, &process, (*process).remainingTime);
-        }
-        else if (algo == 2) {
-            #if (WARNINGS == 1)
-            #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-            #endif
-            pq_push(&waitingQ, &process, getClk());
-        }
-    }
+    
 }
 
 
@@ -892,70 +789,34 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
             #endif
             total_number_of_received_process += 1;
 
-            Process* temp_process = (Process*)malloc(sizeof(Process));
+            Process_Table[msgbuf.id].id = msgbuf.id;
+            Process_Table[msgbuf.id].waitingTime = msgbuf.waitingTime;
+            Process_Table[msgbuf.id].remainingTime = msgbuf.remainingTime;
+            Process_Table[msgbuf.id].burstTime = msgbuf.burstTime;
+            Process_Table[msgbuf.id].priority = msgbuf.priority;
+            Process_Table[msgbuf.id].cumulativeRunningTime = msgbuf.cumulativeRunningTime;
+            Process_Table[msgbuf.id].waiting_start_time = msgbuf.waiting_start_time;
+            Process_Table[msgbuf.id].running_start_time = msgbuf.running_start_time;
+            Process_Table[msgbuf.id].arrivalTime = msgbuf.arrivalTime;
+            Process_Table[msgbuf.id].state = msgbuf.state;
 
-            (*temp_process).id = msgbuf.id;
-            (*temp_process).waitingTime = msgbuf.waitingTime;
-            (*temp_process).remainingTime = msgbuf.remainingTime;
-            (*temp_process).burstTime = msgbuf.burstTime;
-            (*temp_process).priority = msgbuf.priority;
-            (*temp_process).cumulativeRunningTime = msgbuf.cumulativeRunningTime;
-            (*temp_process).waiting_start_time = msgbuf.waiting_start_time;
-            (*temp_process).running_start_time = msgbuf.running_start_time;
-            (*temp_process).arrivalTime = msgbuf.arrivalTime;
-            (*temp_process).state = msgbuf.state;
-            (*temp_process).sizeNeeded = msgbuf.sizeNeeded;
+      
 
-            bool canBeAllocated = memoryManage(true, temp_process);
-
-            if (canBeAllocated)
-            {
-                Process_Table[temp_process->id].id = (*temp_process).id;
-                Process_Table[temp_process->id].waitingTime = (*temp_process).waitingTime;
-                Process_Table[temp_process->id].remainingTime = (*temp_process).remainingTime;
-                Process_Table[temp_process->id].burstTime = (*temp_process).burstTime;
-                Process_Table[temp_process->id].priority = (*temp_process).priority;
-                Process_Table[temp_process->id].cumulativeRunningTime = (*temp_process).cumulativeRunningTime;
-                Process_Table[temp_process->id].waiting_start_time = (*temp_process).waiting_start_time;
-                Process_Table[temp_process->id].running_start_time = (*temp_process).running_start_time;
-                Process_Table[temp_process->id].arrivalTime = (*temp_process).arrivalTime;
-                Process_Table[temp_process->id].sizeNeeded = (*temp_process).sizeNeeded;
-                Process_Table[temp_process->id].state = (*temp_process).state;
-
-
-                if (algo==0)
-                    pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
-                else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
-                    #if (WARNINGS == 1)
-                    #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-                    #endif
-                    pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].remainingTime);
-                }
-                else if (algo == 2) {
-                    #if (WARNINGS == 1)
-                    #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-                    #endif
-                    printf("i am pushing here \n");
-                    RR_Priority++;
-                    pq_push(&readyQ, &Process_Table[msgbuf.id], RR_Priority);
-                }
+            if (algo == 0)
+                pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].priority);
+            else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
+                #if (WARNINGS == 1)
+                #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
+                #endif
+                pq_push(&readyQ, &Process_Table[msgbuf.id], Process_Table[msgbuf.id].remainingTime);
             }
-            else
-            {
-                if (algo == 0)
-                    pq_push(&waitingQ, &temp_process, (*temp_process).priority);
-                else if (algo == 1) { /* WARNING: This needs change depends on the SRTN algorithm */
-                    #if (WARNINGS == 1)
-                    #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-                    #endif
-                    pq_push(&waitingQ, &temp_process, (*temp_process).remainingTime);
-                }
-                else if (algo == 2) {
-                    #if (WARNINGS == 1)
-                    #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-                    #endif
-                    pq_push(&waitingQ, &temp_process, getClk());
-                }
+            else if (algo == 2) {
+                #if (WARNINGS == 1)
+                #warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
+                #endif
+                printf("i am pushing here \n");
+                RR_Priority++;
+                pq_push(&readyQ, &Process_Table[msgbuf.id], RR_Priority);
             }
 
 
@@ -971,300 +832,4 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
     ifReceived = true;
     
    signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
-}
-
-bool memoryManage(bool isAllocating, Process* process)
-{
-    /* New Process Allocation Request */
-    if (isAllocating)
-    {
-        /* Check if I can allocate the required process */
-        if (process->sizeNeeded > memory_size)
-            return false;
-
-        return memoryAllocate(process);
-    }
-    else
-    {
-        int id_of_category = ceil(log(process->segment->size) / log(2));
-        return memoryDeallocate(process->segment, id_of_category);
-    }
-}
-
-bool memoryInitialize()
-{
-    _1KB_segments = ll_constructor();
-    _2KB_segments = ll_constructor();
-    _4KB_segments = ll_constructor();
-    _8KB_segments = ll_constructor();
-    _16KB_segments = ll_constructor();
-    _32KB_segments = ll_constructor();
-    _64KB_segments = ll_constructor();
-    _128KB_segments = ll_constructor();
-    _256KB_segments = ll_constructor();
-
-    memory[0] = _1KB_segments;
-    memory[1] = _2KB_segments;
-    memory[2] = _4KB_segments;
-    memory[3] = _8KB_segments;
-    memory[4] = _16KB_segments;
-    memory[5] = _32KB_segments;
-    memory[6] = _64KB_segments;
-    memory[7] = _128KB_segments;
-    memory[8] = _256KB_segments;
-
-    Segment *segment_1 = (Segment*)malloc(sizeof(Segment));
-    segment_1->size = 256;
-    segment_1->start_address = 0;
-    segment_1->end_address = 255;
-    ll_Node* _256KB_segment_1 = ll_newNode(segment_1, nullptr);
-
-    Segment *segment_2 = (Segment*)malloc(sizeof(Segment));
-    segment_2->size = 256;
-    segment_2->start_address = 256;
-    segment_2->end_address = 511;
-    ll_Node* _256KB_segment_2 = ll_newNode(segment_2, _256KB_segment_1);
-
-    Segment *segment_3 = (Segment*)malloc(sizeof(Segment));
-    segment_3->size = 256;
-    segment_3->start_address = 512;
-    segment_3->end_address = 767;
-    ll_Node* _256KB_segment_3 = ll_newNode(segment_3, _256KB_segment_2);
-
-    Segment *segment_4 = (Segment*)malloc(sizeof(Segment));
-    segment_4->size = 256;
-    segment_4->start_address = 768;
-    segment_4->end_address = 1023;
-    ll_Node* _256KB_segment_4 = ll_newNode(segment_4, _256KB_segment_3);
-
-    _256KB_segments->num_of_nodes += 4;
-    _256KB_segments->Head = _256KB_segment_4;
-}
-
-void segmentation(int id_of_category, int target_of_category, Process* process)
-{
-    /* Base Case */
-    if (id_of_category == target_of_category)
-    {
-        ll_Node* node = memory[id_of_category]->Head;
-        memory[id_of_category]->Head = memory[id_of_category]->Head->next;
-        node->next = nullptr;
-
-        memory[id_of_category]->num_of_nodes += 1;
-
-        process->segment = node->data;
-        printf("Process %d is allocated successfully!\n", process->pid);
-        free(node);
-
-        return;
-    }
-
-    /*
-    * Recursion Trace Tree
-    [8] 256 -> 3
-    [7] 128 -> 1
-    [6] 64  -> 1
-    [5] 32  -> 1
-    [4] 16  -> 1
-    [3] 8   -> 1
-    [2] 4   -> 1
-    [1] 2   -> 1
-    [0] 1   -> 1
-    */
-
-    ll_Node* old_segment = memory[id_of_category]->Head;
-
-    Segment *segment_1 = (Segment*)malloc(sizeof(Segment));
-    segment_1->size = old_segment->data->size / 2;
-    segment_1->end_address = old_segment->data->end_address;
-    segment_1->start_address = segment_1->end_address - segment_1->size;
-    ll_Node* new_segment_1 = ll_newNode(segment_1, memory[id_of_category-1]->Head);
-
-    Segment *segment_2 = (Segment*)malloc(sizeof(Segment));
-    segment_2->size = segment_1->size;
-    segment_2->start_address = old_segment->data->start_address;
-    segment_2->end_address = segment_1->start_address - 1;
-    ll_Node* new_segment_2 = ll_newNode(segment_2, memory[id_of_category-1]->Head);
-
-    free(old_segment->data);
-    free(old_segment);
-
-    segmentation(id_of_category--, target_of_category, process);
-}
-
-bool memoryAllocate(Process* process)
-{
-    // 85KB
-    int size = process->sizeNeeded;
-    int target_id_of_category = ceil(log(size) / log(2));
-    int id_of_category = target_id_of_category;
-    bool check = false;
-
-    /* Check of my category, if there are free segments */
-    while (id_of_category <= 8)
-    {
-        check = ll_isEmpty(memory[id_of_category]);
-
-        if (!check)
-        {
-            segmentation(id_of_category, target_id_of_category, process);
-            memory_size -= size;
-            return true;
-        }
-        else
-            id_of_category++;
-    }
-
-    return false;
-}
-
-Segment* mergeSegments(Segment* left, Segment* right)
-{
-    int id_of_old = ceil(log(left->size) / log(2));
-    Segment* newSegment = (Segment*)malloc(sizeof(Segment));
-
-    newSegment->start_address = left->start_address;
-    newSegment->end_address = right->end_address;
-    newSegment->size = left->size * 2;
-
-    ll_Node* node = ll_newNode(newSegment, nullptr);
-    
-    ll_Node* previous = nullptr;
-    ll_Node* walker = memory[id_of_old+1]->Head;
-
-    if (walker->data->start_address < node->data->end_address)
-    {
-        node->next = walker;
-        memory[id_of_old+1]->Head = node;
-    }
-    else
-    {
-        while (walker)
-        {
-            previous = walker;
-            walker = walker->next;
-
-            if (walker->data->start_address < node->data->end_address)
-            {
-                previous->next = node;
-                node->next = walker;
-                break;
-            }
-        }
-
-        if (!walker)
-        {
-            previous->next = node;
-            node->next = walker; /* Which is nullptr */
-        }
-    }
-
-    return newSegment;
-}
-
-
-bool memoryDeallocate(Segment* segment, int id_of_category)
-{
-    // 25 KB -> starting address = 64, Ending Address = 95
-    //  I will search for a 32KB-segment starting with 96 or ending with 63 (left or right)
-    // 96 / 32 = 3 % 2 = 1 -> [Odd]
-    // (63+1) / 32 = 2 % 2 = 0 -> Even
-    // 128
-    // Size:    *32 *16  [16]  *16 16 *32
-    // Starting: 0   32  [48]   64 80  96
-    // Ending:   31  47  [63]   79 95  127
-    // Parity:   E   E   [O]    E  O   O
-    // If Even -> Merge with right
-    // If Odd -> Merge with left
-
-    if (id_of_category == 9)
-        return true;
-
-    bool check = (segment->start_address / segment->size) % 2;
-
-    /* It's an even segment */
-    if (check == 0)
-    {
-        bool isFound = false;
-        ll_Node* temp = memory[id_of_category]->Head;
-        ll_Node* walker = temp->next;
-
-        if (walker && (segment->end_address + 1 == walker->data->start_address))
-        {
-            temp->next = nullptr;
-
-            (memory[id_of_category]->num_of_nodes)--;
-            memory[id_of_category]->Head = walker;
-
-            isFound = true;
-        }
-
-        while(walker && !isFound)
-        {
-            if(segment->end_address + 1 == walker->data->start_address)
-            {
-                isFound = true;
-
-                temp->next = walker->next;
-                walker->next = nullptr;
-
-                (memory[id_of_category]->num_of_nodes)--;
-            }
-
-            temp = walker;
-            walker = walker->next;
-        }
-
-        if (isFound)
-        {
-            Segment* newSegment = mergeSegments(segment, walker->data);
-            free(walker);
-            
-            return memoryDeallocate(newSegment, id_of_category+1);
-        }
-        else
-            return false;
-    }
-    else    /* It's an odd segment */
-    {
-        bool isFound = false;
-        ll_Node* temp = memory[id_of_category]->Head;
-        ll_Node* walker = temp->next;
-
-        if (walker && (segment->start_address - 1 == walker->data->end_address))
-        {
-            temp->next = nullptr;
-
-            (memory[id_of_category]->num_of_nodes)--;
-            memory[id_of_category]->Head = walker;
-
-            isFound = true;
-        }
-
-        while(walker && !isFound)
-        {
-            if(segment->start_address - 1 == walker->data->end_address)
-            {
-                isFound = true;
-
-                temp->next = walker->next;
-                walker->next = nullptr;
-
-                (memory[id_of_category]->num_of_nodes)--;
-            }
-
-            temp = walker;
-            walker = walker->next;
-        }
-
-        if (isFound)
-        {
-            Segment* newSegment = mergeSegments(walker->data, segment);
-            free(walker);
-            
-            return memoryDeallocate(newSegment, id_of_category+1);
-        }
-        else
-            return false;
-    }
 }
