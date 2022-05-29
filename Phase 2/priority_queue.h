@@ -7,10 +7,6 @@
 /* Only you can change the int datatype to your specific datatype */
 typedef Process* T;  // it was typedef T struct process* and it gives an error --> why typedef ? --> doaa
 
-#define true    1
-#define false   0
-#define bool    char
-
 /* This is the node definition */
 typedef struct node {
     T data;
