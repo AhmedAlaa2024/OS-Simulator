@@ -24,9 +24,10 @@ LinkedList *_32B_segments;
 LinkedList *_64B_segments;
 LinkedList *_128B_segments;
 LinkedList *_256B_segments;
-/*****************************/
+/***********/
 
 FILE *logFile, *perfFile, *memorylogFile;
+FILE *DUMP;
 int algorithm;
 int algo;
 PriorityQueue readyQ;
@@ -129,6 +130,7 @@ bool memoryInitialize();
 bool memoryAllocate(Process *process);
 bool memoryDeallocate(Segment *process, int id_of_category);
 bool memoryManage(bool isAllocating, Process *process);
+void memoryDump(bool isAllcating);
 
 int total_CPU_idle_time = 0;
 int sem1;
@@ -138,6 +140,7 @@ int main(int argc, char *argv[])
     memoryInitialize();
 
     initClk();
+    waitingQ.num_of_nodes = 0;
     total_CPU_idle_time = 0;
     signal(SIGCHLD, SIG_IGN);
 
@@ -247,6 +250,8 @@ int main(int argc, char *argv[])
     fprintf(memorylogFile, "#At  time  x  allocated  y  bytes  for   process  z  from  i  to  j\n");
     fflush(0);
 
+    DUMP = fopen("DUMP.log", "w");
+
     RR_Priority = 0;
 
     while (pq_isEmpty(&readyQ))
@@ -265,6 +270,7 @@ int main(int argc, char *argv[])
     // upon termination release the clock resources.
 
     fclose(logFile);
+    fclose(DUMP);
     write_in_perffile();
     destroyClk(true);
     // return 0;
@@ -789,11 +795,16 @@ void ProcessTerminates(int signum)
     PriorityQueue tempQ;
     tempQ.num_of_nodes = 0;
 
-    while (!pq_isEmpty(&waitingQ))
+    while (waitingQ.num_of_nodes)
     {
+        printf("Debugging line 794: waiting is not empty almfrood %d\n", process->id);
+        fflush(0);
         process = pq_pop(&waitingQ);
+        printf("Debugging line 795: id of process poped from waiting Q %d\n", process->id);
+        fflush(0);
         canBeAllocated = memoryManage(true, process);
-
+        printf("out of memory management with booolean = %d\n", canBeAllocated);
+        fflush(0);
         if (canBeAllocated)
         {
             Process_Table[process->id].id = process->id;
@@ -833,7 +844,20 @@ void ProcessTerminates(int signum)
         else
         {
             if (algo == 0)
+            {
+                printf("Debugging line: 838\n");
+                fflush(0);
+                if (process == nullptr)
+                {
+                    printf("process is null\n");
+                    fflush(0);
+                }
+                printf("process priority %d", (*process).priority);
+                fflush(0);
                 pq_push(&tempQ, process, (*process).priority);
+                printf("Debugging line: 837\n");
+                fflush(0);
+            }
             else if (algo == 1)
             { /* WARNING: This needs change depends on the SRTN algorithm */
 #if (WARNINGS == 1)
@@ -920,6 +944,7 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
             if (canBeAllocated)
             {
                 printf("Debugging at Line 922: I can allocate!\n");
+
                 Process_Table[temp_process->id].id = (*temp_process).id;
                 Process_Table[temp_process->id].waitingTime = (*temp_process).waitingTime;
                 Process_Table[temp_process->id].remainingTime = (*temp_process).remainingTime;
@@ -992,7 +1017,9 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
 
 bool memoryManage(bool isAllocating, Process *process)
 {
+    memoryDump(isAllocating);
     printf("#################################################################################\n");
+    printf("Debugging at Line 992: memory size: %d\n", memory_size);
     printf("Debugging at Line 993: ReadyQ's #nodes: %d\n", readyQ.num_of_nodes);
     printf("Debugging at Line 994: WaitingQ's #nodes: %d\n", waitingQ.num_of_nodes);
     printf("Debugging at Line 995: Number of nodes for 1B_list: %d\n", memory[0]->num_of_nodes);
@@ -1005,26 +1032,34 @@ bool memoryManage(bool isAllocating, Process *process)
     printf("Debugging at Line 1002: Number of nodes for 128B_list: %d\n", memory[7]->num_of_nodes);
     printf("Debugging at Line 1003: Number of nodes for 256B_list: %d\n", memory[8]->num_of_nodes);
     printf("#################################################################################\n");
+    fflush(0);
     /* New Process Allocation Request */
+    bool check;
     if (isAllocating)
     {
         /* Check if I can allocate the required process */
         if (process->sizeNeeded > memory_size)
             return false;
-
-        return memoryAllocate(process);
+        
+        check = memoryAllocate(process);
+        
     }
     else
     {
         int id_of_category = ceil(log(process->segment->size) / log(2));
-        bool check = memoryDeallocate(process->segment, id_of_category);
-        memory_size += pow(2, id_of_category);
+
+        check = memoryDeallocate(process->segment, id_of_category);
         printf("At time %d freed %d bytes from proccess %d from %d to %d\n", getClk(), process->segment->size, process->id, process->segment->start_address, process->segment->end_address);
         fflush(0);
         fprintf(memorylogFile, "At time %d freed %d bytes from proccess %d from %d to %d\n", getClk(), process->segment->size, process->id, process->segment->start_address, process->segment->end_address);
         fflush(0);
-        return check;
+
+        memory_size += pow(2, id_of_category);
+       
     }
+
+    memoryDump(isAllocating);
+    return check;
 }
 
 bool memoryInitialize()
@@ -1139,7 +1174,7 @@ void segmentation(int id_of_category, int target_of_category, Process *process)
 
     memory[id_of_category]->Head = next_segment;
     memory[id_of_category]->num_of_nodes -= 1;
-    memory[id_of_category-1]->num_of_nodes += 2;
+    memory[id_of_category - 1]->num_of_nodes += 2;
     segmentation(id_of_category - 1, target_of_category, process);
 }
 
@@ -1161,11 +1196,12 @@ bool memoryAllocate(Process *process)
         {
             segmentation(id_of_category, target_id_of_category, process);
 
-            memory_size -= pow(2, id_of_category);
             printf("At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), process->segment->size, process->id, process->segment->start_address, process->segment->end_address);
             fflush(0);
             fprintf(memorylogFile, "At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), process->segment->size, process->id, process->segment->start_address, process->segment->end_address);
             fflush(0);
+            int id_of_category = ceil(log(process->segment->size) / log(2));
+            memory_size -= pow(2, id_of_category);
             return true;
         }
         else
@@ -1187,7 +1223,6 @@ Segment *mergeSegments(Segment *left, Segment *right)
     newSegment->size = left->size * 2;
 
     ll_Node *node = ll_newNode(newSegment, nullptr);
-
     ll_Node *previous = nullptr;
     ll_Node *walker = memory[id_of_old + 1]->Head;
     // printf("1233 line %d\n",memory[id_of_old+1]->num_of_nodes);
@@ -1224,7 +1259,9 @@ Segment *mergeSegments(Segment *left, Segment *right)
     }
 
     printf("At time %d merging %d-segment starting at %d and %d into %d-segment at %d\n", getClk(), left->size, left->start_address, right->start_address, newSegment->size, newSegment->start_address);
+    fflush(0);
     memory[id_of_old + 1]->num_of_nodes++;
+    printf("after insertinf a new node in 128 list");
     return newSegment;
 }
 
@@ -1265,7 +1302,7 @@ bool memoryDeallocate(Segment *segment, int id_of_category)
         segment_Right->end_address = segment->end_address;
         segment_Right->size = 128;
         mergeSegments(segment_Left, segment_Right);
-        
+
         return true;
     }
 
@@ -1289,7 +1326,7 @@ bool memoryDeallocate(Segment *segment, int id_of_category)
     if (check == 0)
     {
         ll_Node *walker = memory[id_of_category]->Head; // 1
-        ll_Node *temp = memory[id_of_category]->Head;   // 2
+        ll_Node *temp = memory[id_of_category]->Head;   // 1
 
         if ((segment->end_address + 1 == walker->data->start_address))
         {
@@ -1299,13 +1336,32 @@ bool memoryDeallocate(Segment *segment, int id_of_category)
 
             isFound = true;
         }
-
-        while (walker && !isFound)
+        else if (walker->data->start_address > segment->end_address)
         {
+            memory[id_of_category]->Head = ll_newNode(segment, memory[id_of_category]->Head);
+            (memory[id_of_category]->num_of_nodes)++;
 
-            temp = walker;         // 1
-            walker = walker->next; // 2
+            return true;
+        }
 
+        if (!isFound)
+        {
+            while (segment->end_address > walker->data->start_address)
+            {
+                temp = walker;
+                walker = walker->next;
+                if (walker == nullptr)
+                {
+                    // then we reach to the end of the linked list and we will have to insert it at the end
+                    temp->next = ll_newNode(segment, nullptr);
+                    (memory[id_of_category]->num_of_nodes)++;
+                    return true;
+                }
+            }
+
+            // here we are sure that the the walker start address is less than the end of the segment address
+            // we have 2 cases
+            // 1-merge
             if (segment->end_address + 1 == walker->data->start_address)
             {
                 isFound = true;
@@ -1314,7 +1370,21 @@ bool memoryDeallocate(Segment *segment, int id_of_category)
                 walker->next = nullptr;
 
                 (memory[id_of_category]->num_of_nodes)--;
-                break;
+            }
+            // 2-insert
+            else
+            {
+                temp->next = ll_newNode(segment, walker);
+                (memory[id_of_category]->num_of_nodes)++;
+                return true;
+            }
+        }
+
+        if (!walker)
+        {
+            if ((segment->end_address + 1 == walker->data->start_address))
+            {
+                isFound = true;
             }
         }
 
@@ -1342,22 +1412,57 @@ bool memoryDeallocate(Segment *segment, int id_of_category)
             isFound = true;
         }
 
-        while (walker && !isFound)
+        bool if_merged = false;
+        if (!isFound)
         {
-            temp = walker;         // 1
-            walker = walker->next; // 2
-            if (segment->start_address - 1 == walker->data->end_address)
+            temp = walker;
+            // walker = walker->next;
+            while (walker->data->end_address < segment->start_address)
             {
-                isFound = true;
 
-                temp->next = walker->next;
-                walker->next = nullptr;
-
-                (memory[id_of_category]->num_of_nodes)--;
+                if (walker == nullptr)
+                {
+                    if (segment->start_address - 1 == temp->data->end_address)
+                    {
+                        isFound = true;
+                        temp->next = walker->next;
+                        walker->next = nullptr;
+                        (memory[id_of_category]->num_of_nodes)--;
+                        if_merged = true;
+                        break;
+                    }
+                    else
+                    {
+                        // then we reach to the end of the linked list and we will have to insert it at the end
+                        temp->next = ll_newNode(segment, nullptr);
+                        (memory[id_of_category]->num_of_nodes)++;
+                        return true;
+                    }
+                }
+                temp = walker;
+                walker = walker->next;
             }
 
-            temp = walker;         // 2
-            walker = walker->next; // 3
+            // here we are sure that the the walker start address is less than the end of the segment address
+            // we have 2 cases
+            // 1-merge
+            if (segment->start_address - 1 == temp->data->end_address && !if_merged)
+            {
+                isFound = true;
+                walker = temp;
+                temp = temp->next;
+                (memory[id_of_category]->num_of_nodes)--;
+            }
+            // 2-insert
+            else
+            {
+                if (!if_merged)
+                {
+                    temp->next = ll_newNode(segment, walker); // temp ??
+                    (memory[id_of_category]->num_of_nodes)++;
+                    return true;
+                }
+            }
         }
 
         if (isFound)
@@ -1368,4 +1473,67 @@ bool memoryDeallocate(Segment *segment, int id_of_category)
             return memoryDeallocate(newSegment, id_of_category + 1);
         }
     }
+    if (!isFound)
+    {
+
+        Segment *segment_Left = (Segment *)malloc(sizeof(Segment));
+        Segment *segment_Right = (Segment *)malloc(sizeof(Segment));
+        segment_Left->start_address = segment->start_address;
+        segment_Left->end_address = segment->start_address + segment->size - 1;
+        segment_Left->size = segment->size;
+        segment_Right->start_address = segment_Left->end_address + 1;
+        segment_Right->end_address = segment->end_address;
+        segment_Right->size = segment->size;
+        mergeSegments(segment_Left, segment_Right);
+        return true;
+    }
 }
+
+void memoryDump(bool isAllocating)
+{
+    if(isAllocating)
+    {
+        fprintf(DUMP, "=> snapshot time : %d <ALLOCATTING> \n",getClk()); // should we ingnore this line ?
+        fflush(0);
+    }
+    else{
+        fprintf(DUMP, "=> snapshot time : %d <DEALLOCATTING> \n",getClk()); // should we ingnore this line ?
+        fflush(0);
+    }
+    
+    ll_Node *walker = nullptr;
+    for (int i = 0; i < 9; i++)
+    {
+        
+        walker = memory[i]->Head;
+        fprintf(DUMP, "(%d): ",i); // should we ingnore this line ?
+        fflush(0);
+        if(walker == nullptr)
+        {
+            fprintf(DUMP, "\n");
+            continue;
+        }
+        fprintf(DUMP, "< %d > ", walker->data->size); // should we ingnore this line ?
+        fflush(0);
+        while (walker)
+        {
+            fprintf(DUMP, "[ %d | %d ] -> ", walker->data->start_address, walker->data->end_address); // should we ingnore this line ?
+            fflush(0);
+            walker = walker->next;
+        }
+        fprintf(DUMP, "[NULL]\n");
+    }
+
+    
+}
+
+// deallocate is called during termination
+// get the size of the segment  --> to know the category
+// traverse to find the tween
+// if found --> merge  --> and find the right location in the new category
+// if not found --> insert in the right location
+//
+
+// merge
+// recersively ---> from the current category to the largest category 256
+// once we become unable to merge any more -----> then
