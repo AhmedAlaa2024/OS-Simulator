@@ -763,11 +763,13 @@ void write_in_perffile()
 // handler_notify_scheduler_I_terminated
 void ProcessTerminates(int signum)
 { // down(sem1);
-    // printf("\n a process terminates\n");
+    printf("\nbefore call memorymanage in termination\n");
+    fflush(0);
     // TODO
     // implement what the scheduler should do when it gets notifies that a process is finished
     bool isMerged = memoryManage(false, &Process_Table[current_process_id]);
-
+    printf("\nafter call memorymanage in termination\n");
+    fflush(0);
     running->remainingTime = *shmRemainingtime;
     write_in_logfile_finished();
     // scheduler should delete its data from the process table
@@ -794,11 +796,10 @@ void ProcessTerminates(int signum)
 
     PriorityQueue tempQ;
     tempQ.num_of_nodes = 0;
-
-    while (waitingQ.num_of_nodes)
+    printf("\nwaiting queue size: %d ----------------\n", waitingQ.num_of_nodes);
+    fflush(0);
+    while (waitingQ.num_of_nodes > 0)
     {
-        printf("Debugging line 794: waiting is not empty almfrood %d\n", process->id);
-        fflush(0);
         process = pq_pop(&waitingQ);
         printf("Debugging line 795: id of process poped from waiting Q %d\n", process->id);
         fflush(0);
@@ -1013,7 +1014,8 @@ bool memoryManage(bool isAllocating, Process *process)
     else
     {
         int id_of_category = ceil(log(process->segment->size) / log(2));
-
+        printf("\ninside memorymanage before deallocation\n");
+        fflush(0);
         check = memoryDeallocate(process->segment);
         printf("At time %d freed %d bytes from proccess %d from %d to %d\n", getClk(), process->segment->size, process->id, process->segment->start_address, process->segment->end_address);
         fflush(0);
@@ -1134,7 +1136,7 @@ void segmentation(int id_of_category, int target_of_category, Process *process)
     {
         new_segment_1 = ll_newNode(segment_1, memory[id_of_category - 1]->Head); // changed ->data menna
     }
-    /* Case there are some nodes in the list */
+    /* Case there are no nodes in the list */
     else
     {
         new_segment_1 = ll_newNode(segment_1, nullptr);
@@ -1509,13 +1511,13 @@ bool mergeSegments(int id_of_category, int index)
 
             ll_Node *previous, *walker;
 
-            walker = memory[id_of_category]->Head;
+            walker = memory[id_of_category + 1]-> Head; //rufaida
 
             // In case, there is no node in the current list, insert as the head
             if (!walker)
             {
                 memory[id_of_category + 1]->Head = ll_newNode(newSegment, nullptr);
-
+                memory[id_of_category + 1]->num_of_nodes++;    //rufaida
                 if (index == 0)
                     return false;
 
@@ -1534,7 +1536,10 @@ bool mergeSegments(int id_of_category, int index)
 
                     // In case the right position is the head
                     if (walker == memory[id_of_category + 1]->Head)
+                    {
                         memory[id_of_category + 1]->Head = newNode;
+                        break;
+                    }
 
                     previous->next = newNode;
 
@@ -1553,7 +1558,7 @@ bool mergeSegments(int id_of_category, int index)
                 previous->next = newNode;
             }
 
-            memory[id_of_category]->num_of_nodes += 1;
+            memory[id_of_category + 1]->num_of_nodes += 1;
 
             return mergeSegments(id_of_category + 1, index + 1);
         }
@@ -1674,6 +1679,7 @@ bool memoryDeallocate(Segment *segment)
     if (!walker)
     {
         memory[id_of_category]->Head = ll_newNode(segment, nullptr);
+        memory[id_of_category]->num_of_nodes = 1;
         return false; // Indication no merging is happened!
     }
 
@@ -1689,7 +1695,10 @@ bool memoryDeallocate(Segment *segment)
 
             // In case the right position is the head
             if (walker == memory[id_of_category]->Head)
+            {
                 memory[id_of_category]->Head = newNode;
+                break;
+            }
 
             previous->next = newNode;
 
@@ -1724,12 +1733,12 @@ void memoryDump(bool isAllocating)
 {
     if (isAllocating)
     {
-        fprintf(DUMP, "=> snapshot time : %d <ALLOCATTING> \n", getClk());
+        fprintf(DUMP, "=> snapshot time : %d <ALLOCATTING> , with memory size = %d.\n", getClk(), memory_size);
         fflush(0);
     }
     else
     {
-        fprintf(DUMP, "=> snapshot time : %d <DEALLOCATTING> \n", getClk());
+        fprintf(DUMP, "=> snapshot time : %d <DEALLOCATTING> , with memory size = %d.\n", getClk(), memory_size);
         fflush(0);
     }
 
@@ -1738,7 +1747,7 @@ void memoryDump(bool isAllocating)
     {
 
         walker = memory[i]->Head;
-        fprintf(DUMP, "(%d): ", i);
+        fprintf(DUMP, "(%d), size -> (%d) : ", i, memory[i]->num_of_nodes);
         fflush(0);
         if (walker == nullptr)
         {
