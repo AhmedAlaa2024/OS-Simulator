@@ -83,28 +83,6 @@ MsgBuf msgbuf;
 
 key_t key_id;
 key_t key;
-#if (WARNINGS == 1)
-#warning "Scheduler: Read the following notes carefully!"
-#warning "Systick callback the scheduler.updateInformation()"
-#warning "1. Increase cummualtive running time for the running process"
-#warning "2. Increase waiting time for the waited process"
-#warning "3. Decrease the remaining time"
-#warning "-----------------------------------------------------------------------------------------------------------------"
-#warning "4. Need to fork process (Uncle) to trace the clocks and interrupt the scheduler (Parent) to do the callback"
-#warning "5. We need the context switching to change the state, kill, print."
-#warning "-----------------------------------------------------------------------------------------------------------------"
-#warning "Note:"
-#warning "1. We need to make the receiving operation with notification with no blocking."
-#warning "2. Set a handler upon the termination."
-#warning "-----------------------------------------------------------------------------------------------------------------"
-#endif
-/*
-1. Signal from process_generator to scheduler to receive a new arrived process
-2. When process_generator is finsied, check ppid in scheduler at the end of the handler
-3. If ppid == 1 (systemd), then algorithm should now it have to finsih the exist process in readyQ only
-4. If not and there is no processes in readyQ, then algorithm should know there are process but not arrived yet,
- so don't terminate.
-*/
 
 void RR(int quantum);
 void HPF(void);
@@ -130,7 +108,7 @@ bool memoryInitialize();
 bool memoryAllocate(Process *process);
 bool memoryDeallocate(Segment *process);
 bool memoryManage(bool isAllocating, Process *process);
-void memoryDump(bool isAllcating);
+void memoryDump(bool isAllocating, Process *process, int size, bool isMergingHappened);
 
 int total_CPU_idle_time = 0;
 int sem1;
@@ -291,14 +269,8 @@ void RR(int quantum)
     // printf("----------the quantum %d\n", quantum);
     while (total_number_of_processes)
     {
-        // printf("###############################################################\n");
-        // printf("Total Number of processes until now: %d\n", pq_getLength(&readyQ));
-        // printf("###############################################################\n");
-
-        // handler_notify_scheduler_new_process_has_arrived(0);
-        // printf("\ni am here -------------------------------------\n");
-
-        // printf("\ni am here \n");
+        printf("RR is WORKING now!\n");
+        fflush(0);
         if (running)
         {
 
@@ -315,7 +287,6 @@ void RR(int quantum)
 
             currentQuantum--;
 
-            //(*running).remainingTime = *shmRemainingtime;
             running->cumulativeRunningTime++;
 
             // to avoid stopping the process after ending the quantum if it is the only process in the system
@@ -453,11 +424,8 @@ void HPF(void)
     bool ifUpdated = true;
     while (total_number_of_processes)
     {
-        printf("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
-        // printf("###############################################################\n");
-        // printf("ReadyQ length until now: %d\n", pq_getLength(&readyQ));
-        // printf("###############################################################\n");
-
+        printf("HPF is WORKING now!\n");
+        fflush(0);
         if (running)
         {
             ifUpdated = false;
@@ -522,13 +490,14 @@ void HPF(void)
 }
 void SRTN(void)
 {
-    // printf("heeeeeeeeeeeeeeeeeeeeeeeere");
     fflush(0);
     int clk = getClk();
     int peek;
     int pid, pr;
     while (total_number_of_processes)
     {
+        printf("SRTN is WORKING now!\n");
+        fflush(0);
         if (running && running->remainingTime == 0)
             continue;
 
@@ -636,18 +605,6 @@ void updateInformation()
 // write_in_logfile
 void write_in_logfile_start()
 {
-
-    // printf("process pid = %d , process id = %d\n", running->pid, running->id);
-    // fflush(0);
-    // printf("At  time  %d  process  %d  started  arr  %d  total  %d  remain  %d  wait  %d\n",
-    //     running->running_start_time,
-    //     running->id,
-    //     running->arrivalTime,
-    //     running->burstTime,    //to make sure ?!
-    //     running->remainingTime,
-    //     running->waitingTime   //we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
-    // );
-    // fflush(0);
     fprintf(logFile, "At  time  %i  process  %i  started  arr  %i  total  %i  remain  %i  wait  %i\n",
             (*running).running_start_time,
             (*running).id,
@@ -762,14 +719,14 @@ void write_in_perffile()
 
 // handler_notify_scheduler_I_terminated
 void ProcessTerminates(int signum)
-{ // down(sem1);
-    printf("\nbefore call memorymanage in termination\n");
+{ 
+    printf("Process Terminate handler is started!\n");
     fflush(0);
+    // down(sem1);
     // TODO
     // implement what the scheduler should do when it gets notifies that a process is finished
     bool isMerged = memoryManage(false, &Process_Table[current_process_id]);
-    printf("\nafter call memorymanage in termination\n");
-    fflush(0);
+
     running->remainingTime = *shmRemainingtime;
     write_in_logfile_finished();
     // scheduler should delete its data from the process table
@@ -796,16 +753,14 @@ void ProcessTerminates(int signum)
 
     PriorityQueue tempQ;
     tempQ.num_of_nodes = 0;
-    printf("\nwaiting queue size: %d ----------------\n", waitingQ.num_of_nodes);
+    printf("Debugging at Line 750: WaitingQ Size: %d\n", waitingQ.num_of_nodes);
     fflush(0);
     while (waitingQ.num_of_nodes > 0)
     {
         process = pq_pop(&waitingQ);
-        printf("Debugging line 795: id of process poped from waiting Q %d\n", process->id);
+        printf("Debugging at Line 750: POPING - WaitingQ Size: %d\n", waitingQ.num_of_nodes);
         fflush(0);
         canBeAllocated = memoryManage(true, process);
-        printf("out of memory management with booolean = %d\n", canBeAllocated);
-        fflush(0);
         if (canBeAllocated)
         {
             Process_Table[process->id].id = process->id;
@@ -825,16 +780,10 @@ void ProcessTerminates(int signum)
                 pq_push(&readyQ, &Process_Table[process->id], Process_Table[process->id].priority);
             else if (algo == 1)
             { /* WARNING: This needs change depends on the SRTN algorithm */
-#if (WARNINGS == 1)
-#warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-#endif
                 pq_push(&readyQ, &Process_Table[process->id], Process_Table[process->id].remainingTime);
             }
             else if (algo == 2)
             {
-#if (WARNINGS == 1)
-#warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-#endif
                 // printf("i am pushing here \n");
                 RR_Priority++;
                 pq_push(&readyQ, &Process_Table[process->id], RR_Priority);
@@ -845,34 +794,12 @@ void ProcessTerminates(int signum)
         else
         {
             if (algo == 0)
-            {
-                printf("Debugging line: 838\n");
-                fflush(0);
-                if (process == nullptr)
-                {
-                    printf("process is null\n");
-                    fflush(0);
-                }
-                printf("process priority %d", (*process).priority);
-                fflush(0);
                 pq_push(&tempQ, process, (*process).priority);
-                printf("Debugging line: 837\n");
-                fflush(0);
-            }
             else if (algo == 1)
-            { /* WARNING: This needs change depends on the SRTN algorithm */
-#if (WARNINGS == 1)
-#warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-#endif
+                /* WARNING: This needs change depends on the SRTN algorithm */
                 pq_push(&tempQ, process, (*process).remainingTime);
-            }
             else if (algo == 2)
-            {
-#if (WARNINGS == 1)
-#warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-#endif
                 pq_push(&tempQ, process, getClk());
-            }
         }
     }
 
@@ -884,25 +811,21 @@ void ProcessTerminates(int signum)
         if (algo == 0)
             pq_push(&waitingQ, process, (*process).priority);
         else if (algo == 1)
-        { /* WARNING: This needs change depends on the SRTN algorithm */
-#if (WARNINGS == 1)
-#warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of SRTN algorithm."
-#endif
+            /* WARNING: This needs change depends on the SRTN algorithm */
             pq_push(&waitingQ, process, (*process).remainingTime);
-        }
         else if (algo == 2)
-        {
-#if (WARNINGS == 1)
-#warning "Scheduler: You should decide what will be the priority parameter in the priority queue in case of RR algorithm."
-#endif
             pq_push(&waitingQ, process, getClk());
-        }
     }
+    printf("Process Terminate handler is finished Successfully! ReadyQ Size: %d, WaitingQ Size: %d, TempQ Size: %d\n", readyQ.num_of_nodes, waitingQ.num_of_nodes, tempQ.num_of_nodes);
+    fflush(0);
     signal(SIGUSR2, ProcessTerminates);
 }
 
 void handler_notify_scheduler_new_process_has_arrived(int signum)
 {
+    printf("Notification handler is started!\n");
+    fflush(0);
+
     int receiveValue;
     int rc;
     struct msqid_ds buf;
@@ -939,7 +862,6 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
             if (canBeAllocated)
             {
                 ifReceived = true;
-                printf("Debugging at Line 922: I can allocate!\n");
 
                 Process_Table[temp_process->id].id = (*temp_process).id;
                 Process_Table[temp_process->id].waitingTime = (*temp_process).waitingTime;
@@ -968,11 +890,9 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
                     RR_Priority++;
                     pq_push(&readyQ, &Process_Table[temp_process->id], RR_Priority);
                 }
-                printf("Debugging at Line 969: ReadyQ: %d\n", readyQ.num_of_nodes);
             }
             else
             {
-                printf("Debugging at Line 959: I can't allocate!\n");
                 if (algo == 0)
                     pq_push(&waitingQ, temp_process, (*temp_process).priority);
                 else if (algo == 1)
@@ -985,38 +905,41 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
                 }
             }
 
+
             /* Parent is systemd, which means the process_generator is died! */
             if (getppid() == 1)
-            {
-                // printf("My father is died!\n");
-                fflush(0);
                 process_generator_finished = true;
-            }
         }
     }
 
-
+    printf("Notification handler is finished successfully!\n");
+    fflush(0);
     signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
 }
 
 bool memoryManage(bool isAllocating, Process *process)
 {
     /* New Process Allocation Request */
-    bool check;
+    bool check, isMergingHappened;
+    int size;
     if (isAllocating)
     {
         /* Check if I can allocate the required process */
-        if (process->sizeNeeded > memory_size)
-            return false;
+        // if (process->sizeNeeded > memory_size)
+        //     return false;
 
         check = memoryAllocate(process);
+        if (check)
+            size = process->segment->size;
+        else
+            size = 0;
     }
     else
     {
         int id_of_category = ceil(log(process->segment->size) / log(2));
-        printf("\ninside memorymanage before deallocation\n");
-        fflush(0);
+        size = process->segment->size;
         check = memoryDeallocate(process->segment);
+        isMergingHappened = check;
         printf("At time %d freed %d bytes from proccess %d from %d to %d\n", getClk(), process->segment->size, process->id, process->segment->start_address, process->segment->end_address);
         fflush(0);
         fprintf(memorylogFile, "At time %d freed %d bytes from proccess %d from %d to %d\n", getClk(), process->segment->size, process->id, process->segment->start_address, process->segment->end_address);
@@ -1024,22 +947,7 @@ bool memoryManage(bool isAllocating, Process *process)
 
         memory_size += pow(2, id_of_category);
     }
-    printf("#################################################################################\n");
-    printf("Debugging at Line 992: memory size: %d\n", memory_size);
-    printf("Debugging at Line 993: ReadyQ's #nodes: %d\n", readyQ.num_of_nodes);
-    printf("Debugging at Line 994: WaitingQ's #nodes: %d\n", waitingQ.num_of_nodes);
-    printf("Debugging at Line 995: Number of nodes for 1B_list: %d\n", memory[0]->num_of_nodes);
-    printf("Debugging at Line 996: Number of nodes for 2B_list: %d\n", memory[1]->num_of_nodes);
-    printf("Debugging at Line 997: Number of nodes for 4B_list: %d\n", memory[2]->num_of_nodes);
-    printf("Debugging at Line 998: Number of nodes for 8B_list: %d\n", memory[3]->num_of_nodes);
-    printf("Debugging at Line 999: Number of nodes for 16B_list: %d\n", memory[4]->num_of_nodes);
-    printf("Debugging at Line 1000: Number of nodes for 32B_list: %d\n", memory[5]->num_of_nodes);
-    printf("Debugging at Line 1001: Number of nodes for 64B_list: %d\n", memory[6]->num_of_nodes);
-    printf("Debugging at Line 1002: Number of nodes for 128B_list: %d\n", memory[7]->num_of_nodes);
-    printf("Debugging at Line 1003: Number of nodes for 256B_list: %d\n", memory[8]->num_of_nodes);
-    printf("#################################################################################\n");
-    fflush(0);
-    memoryDump(isAllocating);
+    memoryDump(isAllocating, process, size, isMergingHappened);
     return check;
 }
 
@@ -1161,16 +1069,14 @@ void segmentation(int id_of_category, int target_of_category, Process *process)
 
 bool memoryAllocate(Process *process)
 {
-    // printf("Debugging at Line 1167: I am tring to allocate!\n");
     int size = process->sizeNeeded;
     int target_id_of_category = ceil(log(size) / log(2));
     int id_of_category = target_id_of_category;
     bool check = false;
+
     /* Check of my category, if there are free segments */
     while (id_of_category <= 8)
     {
-        // printf("Debugging at Line 1174: id -> %d\n", id_of_category);
-        // printf("Debugging at Line 1175: target -> %d\n", target_id_of_category);
         check = ll_isEmpty(memory[id_of_category]);
 
         if (!check)
@@ -1474,9 +1380,13 @@ bool memoryDeallocate(Segment *segment, int id_of_category)
 
 bool mergeSegments(int id_of_category, int index)
 {
+    printf("<MERGING> - id_of_category: %d\n", id_of_category);
+    fflush(0);
     // Base Case
     if (id_of_category == 8)
     {
+        printf("<FINISH MERGING> - id_of_category: %d\n", id_of_category);
+        fflush(0);
         if (index == 0)
             return false;
 
@@ -1496,7 +1406,9 @@ bool mergeSegments(int id_of_category, int index)
         ll_Node *left = memory[id_of_category]->Head;
         ll_Node *right = left->next;
 
-        if (left->data->end_address + 1 == right->data->start_address)
+        int check = (left->data->start_address / left->data->size) % 2;
+
+        if ((left->data->end_address + 1 == right->data->start_address) && (check == 0))
         {
             Segment *newSegment = (Segment *)malloc(sizeof(Segment));
             newSegment->size = left->data->size * 2;
@@ -1511,15 +1423,13 @@ bool mergeSegments(int id_of_category, int index)
 
             ll_Node *previous, *walker;
 
-            walker = memory[id_of_category + 1]-> Head; //rufaida
+            walker = memory[id_of_category + 1]->Head; // rufaida
 
             // In case, there is no node in the current list, insert as the head
             if (!walker)
             {
                 memory[id_of_category + 1]->Head = ll_newNode(newSegment, nullptr);
-                memory[id_of_category + 1]->num_of_nodes++;    //rufaida
-                if (index == 0)
-                    return false;
+                memory[id_of_category + 1]->num_of_nodes++; // rufaida
 
                 return true;
             }
@@ -1527,6 +1437,7 @@ bool mergeSegments(int id_of_category, int index)
             previous = nullptr;
             ll_Node *newNode;
 
+            /* After merging, we need to search for the best fit position in memory[id+1] to insert the new merged segment! */
             while (walker)
             {
                 // Initially the walker stands on the head of the current list
@@ -1572,8 +1483,9 @@ bool mergeSegments(int id_of_category, int index)
 
         while (walker)
         {
+            int check = (previous->data->start_address / previous->data->size) % 2;
             // Initially the previous stands on the head of the current list
-            if (walker->data->start_address == previous->data->end_address + 1)
+            if ((walker->data->start_address == previous->data->end_address + 1) && (check == 0))
             {
                 Segment *newSegment = (Segment *)malloc(sizeof(Segment));
                 newSegment->size = previous->data->size * 2;
@@ -1729,41 +1641,71 @@ bool memoryDeallocate(Segment *segment)
     return mergeSegments(id_of_category, index);
 }
 
-void memoryDump(bool isAllocating)
+void memoryDump(bool isAllocating, Process *process, int size, bool isMergingHappened)
 {
     if (isAllocating)
     {
-        fprintf(DUMP, "=> snapshot time : %d <ALLOCATTING> , with memory size = %d.\n", getClk(), memory_size);
+        fprintf(DUMP, "=> snapshot time : %d <ALLOCATTING %d> [Process %d], with memory size = %d.\n", getClk(), size, process->id, memory_size);
         fflush(0);
     }
     else
     {
-        fprintf(DUMP, "=> snapshot time : %d <DEALLOCATTING> , with memory size = %d.\n", getClk(), memory_size);
-        fflush(0);
+        if (isMergingHappened)
+        {
+            fprintf(DUMP, "=> snapshot time : %d <DEALLOCATTING %d> [Process %d], with memory size = %d <MERGED>\n", getClk(), size, process->id, memory_size);
+            fflush(0);
+        }
+        else
+        {
+            fprintf(DUMP, "=> snapshot time : %d <DEALLOCATTING %d> [Process %d], with memory size = %d <NOT MERGED>\n", getClk(), size, process->id, memory_size);
+            fflush(0);
+        }
     }
 
+    fprintf(DUMP, "Ready Queue Size = %d\n", readyQ.num_of_nodes);
+    fflush(0);
+    fprintf(DUMP, "Waiting Queue Size = %d\n", waitingQ.num_of_nodes);
+    fflush(0);
+
     ll_Node *walker = nullptr;
+    PriorityQueue tempQ;
+    tempQ.num_of_nodes = 0;
     for (int i = 0; i < 9; i++)
     {
-
         walker = memory[i]->Head;
         fprintf(DUMP, "(%d), size -> (%d) : ", i, memory[i]->num_of_nodes);
         fflush(0);
-        if (walker == nullptr)
+        if ((walker == nullptr) || (memory[i]->num_of_nodes == 0))
         {
-            fprintf(DUMP, "\n");
+            fprintf(DUMP, "[NULL]\n");
             continue;
         }
         fprintf(DUMP, "< %d > ", walker->data->size);
         fflush(0);
         while (walker)
         {
+            Process* tempProcess = (Process*)malloc(sizeof(Process));
+            tempProcess->segment = walker->data;
+            pq_push(&tempQ, tempProcess, walker->data->start_address);
             fprintf(DUMP, "[ %d | %d ] -> ", walker->data->start_address, walker->data->end_address);
             fflush(0);
             walker = walker->next;
         }
         fprintf(DUMP, "[NULL]\n");
     }
+
+    fprintf(DUMP, "<MEMORY %d>: ", tempQ.num_of_nodes);
+    fflush(0);
+    Process* tempProcess;
+    while (!pq_isEmpty(&tempQ))
+    {
+        tempProcess = pq_pop(&tempQ);
+        fprintf(DUMP, "(%d)[ %d | %d ] -> ", tempProcess->segment->size, tempProcess->segment->start_address, tempProcess->segment->end_address);
+        fflush(0);
+        free(tempProcess);
+    }
+    fprintf(DUMP, "[NULL]\n");
+    fprintf(DUMP, "##############################################################################################\n");
 }
 
 // deallocate is called during termination
