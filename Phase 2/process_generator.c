@@ -2,6 +2,7 @@
 #include "priority_queue.h"
 #include <string.h>
 #include "LinkedList.h"
+
 #define LINE_SIZE 300
 
 int msg_id;
@@ -9,9 +10,6 @@ int sem1;
 int clkPid;
 int scdPid;
 void clearResources(int);
-// void handler(int signum){
-//     signal(SIGUSR1, handler);
-// }
 
 int main(int argc, char *argv[])
 {
@@ -60,7 +58,6 @@ int main(int argc, char *argv[])
     }
 
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
-
     char algo[5];
     char Quantum[5];
     char pNum[7];
@@ -71,22 +68,22 @@ int main(int argc, char *argv[])
 
     do
     {
-        printf("Please, choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR\n");
+        printf("Please, Choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR\nInput:\n");
         fgets(algo, sizeof(algo), stdin);
         i_algo = atoi(algo);
     } while (i_algo < 1 || i_algo > 3);
 
     if (i_algo == 3)
     {
-        printf("Please, enter Quantum\n");
+        printf("Please, Enter Quantum: ");
         fgets(Quantum, sizeof(Quantum), stdin);
+        printf("\n");
         i_q = atoi(Quantum);
     }
 
     signal(SIGINT, clearResources);
 
     // 3. Initiate and create the scheduler and clock processes.
-
     scdPid = fork();
 
     if (scdPid == -1) // I can't fork again
