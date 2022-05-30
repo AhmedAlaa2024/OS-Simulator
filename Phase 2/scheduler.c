@@ -938,6 +938,7 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
 
             if (canBeAllocated)
             {
+                ifReceived = true;
                 printf("Debugging at Line 922: I can allocate!\n");
 
                 Process_Table[temp_process->id].id = (*temp_process).id;
@@ -994,7 +995,6 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
         }
     }
 
-    ifReceived = true;
 
     signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
 }
