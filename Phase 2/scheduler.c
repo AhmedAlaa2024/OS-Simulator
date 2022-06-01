@@ -10,40 +10,27 @@
 #include <stdlib.h>
 #include <math.h>
 
-/* Memory Management Segment */
-int memory_size = 1024;
+/*************************************** Log Files ****************************************/
+FILE *logFile, *perfFile, *memorylogFile, *DUMP;
+/*******************************************************************************************/
 
-/* Free Lists */
-LinkedList *memory[9];
-LinkedList *_1B_segments;
-LinkedList *_2B_segments;
-LinkedList *_4B_segments;
-LinkedList *_8B_segments;
-LinkedList *_16B_segments;
-LinkedList *_32B_segments;
-LinkedList *_64B_segments;
-LinkedList *_128B_segments;
-LinkedList *_256B_segments;
-/*****/
 
-FILE *logFile, *perfFile, *memorylogFile;
-FILE *DUMP;
-int algorithm;
-int algo;
+/***************************** Scheduling Queues and Tables ********************************/
 PriorityQueue readyQ;
 PriorityQueue waitingQ;
 Process *Process_Table;
+/*******************************************************************************************/
+
+
+/************************************ CPU Management **************************************/
 Process *running = NULL;
 Process idleProcess;
-int shmid;
+
 int remainingtime;
 int *shmRemainingtime;
 int current_process_id;
 int total_number_of_received_process;
 int total_number_of_processes;
-int RR_Priority;
-bool if_termination;
-int total_CPU_idle_time;
 int number_of_terminated_processes;
 
 float CPU_utilization;
@@ -53,15 +40,26 @@ float Std_WTA;
 float total_Waiting;
 float total_WTA;
 float *WTA;
+/*******************************************************************************************/
 
+/************************************ Scheduling Flags *************************************/
 bool ifReceived = false;
 bool process_generator_finished = false;
+/*******************************************************************************************/
 
+/************************************ DUMY Variables **************************************/
+int algorithm;
+int algo;
 int clk;
-
-int sem;
-
 int i, Q;
+int total_CPU_idle_time;
+int RR_Priority;
+int FINISH;
+/*******************************************************************************************/
+
+/****************************************** Keys *****************************************/
+key_t key_id;
+int shmid;
 
 key_t key1;
 int shmid1;
@@ -75,42 +73,60 @@ int shmid3;
 key_t key4;
 int shmid4;
 
+key_t key;
 int msg_id;
 MsgBuf msgbuf;
+/*******************************************************************************************/
 
-key_t key_id;
-key_t key;
-
+/************************************ Scheduling Algorithms *********************************/
 void RR(int quantum);
 void HPF(void);
 void SRTN(void);
+/*******************************************************************************************/
 
-void down(int sem);
-void up(int sem);
-
+/***************************************** Utilities ***************************************/
 void updateInformation();
+/*******************************************************************************************/
 
+/************************************ Signal Handlers **************************************/
 void handler_notify_scheduler_new_process_has_arrived(int signum);
-
 void ProcessTerminates(int signum);
 void interrupt_handler(int signum);
+/*******************************************************************************************/
 
+/************************************ Logging Functions ************************************/
 void write_in_logfile_start();
 void write_in_logfile_stopped();
 void write_in_logfile_resume();
 void write_in_logfile_finished();
 void write_in_perffile();
+/*******************************************************************************************/
 
+/*************************************** Free Lists ****************************************/
+// Memory Management Segment
+int memory_size = 1024;
+
+LinkedList *memory[9];
+LinkedList *_1B_segments;
+LinkedList *_2B_segments;
+LinkedList *_4B_segments;
+LinkedList *_8B_segments;
+LinkedList *_16B_segments;
+LinkedList *_32B_segments;
+LinkedList *_64B_segments;
+LinkedList *_128B_segments;
+LinkedList *_256B_segments;
+/*******************************************************************************************/
+
+/************************************ Memory Management ************************************/
 bool mergeSegments(int id_of_category, int index);
 bool memoryInitialize();
 bool memoryAllocate(Process *process);
 bool memoryDeallocate(Segment *process);
 bool memoryManage(bool isAllocating, Process *process);
 void memoryDump(bool isAllocating, Process *process, int size, bool isMergingHappened);
+/*******************************************************************************************/
 
-int total_CPU_idle_time;
-int sem1;
-int FINISH;
 
 int main(int argc, char *argv[])
 {
@@ -683,9 +699,6 @@ void ProcessTerminates(int signum)
     total_number_of_processes--;
     // to ask
     // should we check on the total number of processes and if it equals 0 then terminate the scheduler
-
-    
-    if_termination = true;
 
    
     Process *process;
