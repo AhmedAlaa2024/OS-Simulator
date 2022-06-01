@@ -1,0 +1,180 @@
+=> snapshot time : 1 <ALLOCATTING 64> [Process 1], with memory size = 960.
+Total Number of Processes = 6
+Ready Queue Size = 0
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (1) : < 64 > [ 64 | 127 ] -> [NULL]
+(7), size -> (1) : < 128 > [ 128 | 255 ] -> [NULL]
+(8), size -> (3) : < 256 > [ 256 | 511 ] -> [ 512 | 767 ] -> [ 768 | 1023 ] -> [NULL]
+<MEMORY 5>: (64)[ 64 | 127 ] -> (128)[ 128 | 255 ] -> (256)[ 256 | 511 ] -> (256)[ 512 | 767 ] -> (256)[ 768 | 1023 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 1 <ALLOCATTING 64> [Process 2], with memory size = 896.
+Total Number of Processes = 6
+Ready Queue Size = 1
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (0) : [NULL]
+(7), size -> (1) : < 128 > [ 128 | 255 ] -> [NULL]
+(8), size -> (3) : < 256 > [ 256 | 511 ] -> [ 512 | 767 ] -> [ 768 | 1023 ] -> [NULL]
+<MEMORY 4>: (128)[ 128 | 255 ] -> (256)[ 256 | 511 ] -> (256)[ 512 | 767 ] -> (256)[ 768 | 1023 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 1 <ALLOCATTING 128> [Process 3], with memory size = 768.
+Total Number of Processes = 6
+Ready Queue Size = 2
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (0) : [NULL]
+(7), size -> (0) : [NULL]
+(8), size -> (3) : < 256 > [ 256 | 511 ] -> [ 512 | 767 ] -> [ 768 | 1023 ] -> [NULL]
+<MEMORY 3>: (256)[ 256 | 511 ] -> (256)[ 512 | 767 ] -> (256)[ 768 | 1023 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 1 <ALLOCATTING 256> [Process 4], with memory size = 512.
+Total Number of Processes = 6
+Ready Queue Size = 3
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (0) : [NULL]
+(7), size -> (0) : [NULL]
+(8), size -> (2) : < 256 > [ 512 | 767 ] -> [ 768 | 1023 ] -> [NULL]
+<MEMORY 2>: (256)[ 512 | 767 ] -> (256)[ 768 | 1023 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 1 <ALLOCATTING 64> [Process 5], with memory size = 448.
+Total Number of Processes = 6
+Ready Queue Size = 4
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (1) : < 64 > [ 576 | 639 ] -> [NULL]
+(7), size -> (1) : < 128 > [ 640 | 767 ] -> [NULL]
+(8), size -> (1) : < 256 > [ 768 | 1023 ] -> [NULL]
+<MEMORY 3>: (64)[ 576 | 639 ] -> (128)[ 640 | 767 ] -> (256)[ 768 | 1023 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 1 <ALLOCATTING 256> [Process 6], with memory size = 192.
+Total Number of Processes = 6
+Ready Queue Size = 5
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (1) : < 64 > [ 576 | 639 ] -> [NULL]
+(7), size -> (1) : < 128 > [ 640 | 767 ] -> [NULL]
+(8), size -> (0) : [NULL]
+<MEMORY 2>: (64)[ 576 | 639 ] -> (128)[ 640 | 767 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 63 <DEALLOCATTING 64> [Process 1], with memory size = 256 <MERGED>
+Total Number of Processes = 6
+Ready Queue Size = 5
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (2) : < 64 > [ 0 | 63 ] -> [ 576 | 639 ] -> [NULL]
+(7), size -> (1) : < 128 > [ 640 | 767 ] -> [NULL]
+(8), size -> (0) : [NULL]
+<MEMORY 3>: (64)[ 0 | 63 ] -> (64)[ 576 | 639 ] -> (128)[ 640 | 767 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 65 <DEALLOCATTING 64> [Process 2], with memory size = 320 <MERGED>
+Total Number of Processes = 5
+Ready Queue Size = 4
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (1) : < 64 > [ 576 | 639 ] -> [NULL]
+(7), size -> (2) : < 128 > [ 0 | 127 ] -> [ 640 | 767 ] -> [NULL]
+(8), size -> (0) : [NULL]
+<MEMORY 3>: (128)[ 0 | 127 ] -> (64)[ 576 | 639 ] -> (128)[ 640 | 767 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 67 <DEALLOCATTING 128> [Process 3], with memory size = 448 <MERGED>
+Total Number of Processes = 4
+Ready Queue Size = 3
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (1) : < 64 > [ 576 | 639 ] -> [NULL]
+(7), size -> (1) : < 128 > [ 640 | 767 ] -> [NULL]
+(8), size -> (1) : < 256 > [ 0 | 255 ] -> [NULL]
+<MEMORY 3>: (256)[ 0 | 255 ] -> (64)[ 576 | 639 ] -> (128)[ 640 | 767 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 69 <DEALLOCATTING 256> [Process 4], with memory size = 704 <NOT MERGED>
+Total Number of Processes = 3
+Ready Queue Size = 2
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (1) : < 64 > [ 576 | 639 ] -> [NULL]
+(7), size -> (1) : < 128 > [ 640 | 767 ] -> [NULL]
+(8), size -> (2) : < 256 > [ 0 | 255 ] -> [ 256 | 511 ] -> [NULL]
+<MEMORY 4>: (256)[ 0 | 255 ] -> (256)[ 256 | 511 ] -> (64)[ 576 | 639 ] -> (128)[ 640 | 767 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 71 <DEALLOCATTING 64> [Process 5], with memory size = 768 <MERGED>
+Total Number of Processes = 2
+Ready Queue Size = 1
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (0) : [NULL]
+(7), size -> (0) : [NULL]
+(8), size -> (3) : < 256 > [ 0 | 255 ] -> [ 256 | 511 ] -> [ 512 | 767 ] -> [NULL]
+<MEMORY 3>: (256)[ 0 | 255 ] -> (256)[ 256 | 511 ] -> (256)[ 512 | 767 ] -> [NULL]
+##############################################################################################
+=> snapshot time : 73 <DEALLOCATTING 256> [Process 6], with memory size = 1024 <NOT MERGED>
+Total Number of Processes = 1
+Ready Queue Size = 0
+Waiting Queue Size = 0
+(0), size -> (0) : [NULL]
+(1), size -> (0) : [NULL]
+(2), size -> (0) : [NULL]
+(3), size -> (0) : [NULL]
+(4), size -> (0) : [NULL]
+(5), size -> (0) : [NULL]
+(6), size -> (0) : [NULL]
+(7), size -> (0) : [NULL]
+(8), size -> (4) : < 256 > [ 0 | 255 ] -> [ 256 | 511 ] -> [ 512 | 767 ] -> [ 768 | 1023 ] -> [NULL]
+<MEMORY 4>: (256)[ 0 | 255 ] -> (256)[ 256 | 511 ] -> (256)[ 512 | 767 ] -> (256)[ 768 | 1023 ] -> [NULL]
+##############################################################################################

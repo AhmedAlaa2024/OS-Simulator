@@ -2,7 +2,6 @@
 #include "priority_queue.h"
 #include <string.h>
 #include "LinkedList.h"
-
 #define LINE_SIZE 300
 
 int msg_id;
@@ -10,6 +9,9 @@ int sem1;
 int clkPid;
 int scdPid;
 void clearResources(int);
+// void handler(int signum){
+//     signal(SIGUSR1, handler);
+// }
 
 int main(int argc, char *argv[])
 {
@@ -25,7 +27,7 @@ int main(int argc, char *argv[])
 
     MsgBuf msgbuf;
 
-    // signal(SIGINT, clearResources);
+     signal(SIGINT, clearResources);
 
     /* TODO Initialization */
     // 1. Read the input files.
@@ -58,6 +60,7 @@ int main(int argc, char *argv[])
     }
 
     // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
+
     char algo[5];
     char Quantum[5];
     char pNum[7];
@@ -68,22 +71,23 @@ int main(int argc, char *argv[])
 
     do
     {
-        printf("Please, Choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR\nInput:\n");
+        printf("Please, choose scheduling algorithm, enter:\n1.HPF\n2.SRTN\n3.RR\n");
         fgets(algo, sizeof(algo), stdin);
         i_algo = atoi(algo);
     } while (i_algo < 1 || i_algo > 3);
 
     if (i_algo == 3)
     {
-        printf("Please, Enter Quantum: ");
+        printf("Please, enter Quantum\n");
         fgets(Quantum, sizeof(Quantum), stdin);
-        printf("\n");
         i_q = atoi(Quantum);
+        printf("Quantum: %s\t%d", Quantum, i_q);
     }
 
     signal(SIGINT, clearResources);
 
     // 3. Initiate and create the scheduler and clock processes.
+
     scdPid = fork();
 
     if (scdPid == -1) // I can't fork again
@@ -152,10 +156,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    int stat_loc;
-    waitpid(scdPid, &stat_loc, 0);
+    while(true);
+    
     destroyClk(true);
-    clearResources(0);
 }
 
 void clearResources(int signum)
@@ -164,9 +167,8 @@ void clearResources(int signum)
     shmctl(get_shmid(), IPC_RMID, (struct shmid_ds *)0);
     msgctl(msg_id, IPC_RMID, (struct msqid_ds *)0);
 
-    kill(scdPid, SIGKILL);
+    //kill(scdPid, SIGKILL);
     destroyClk(true);
-    signal(SIGINT, clearResources);
 
     exit(0);
 }

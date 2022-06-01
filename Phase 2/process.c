@@ -87,8 +87,8 @@ int main(int agrc, char * argv[])
     
 
     kill(getppid(), SIGUSR2);
+    shmdt((void*)shmRemainingtime);
     destroyClk(false);
-    
     return 0;
 }
 

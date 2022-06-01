@@ -21,13 +21,14 @@ void cleanup(int signum)
 int main(int argc, char * argv[])
 {
     printf("Clock starting\n");
-    #if (HANDLERS == 1)
+  
     signal(SIGINT, cleanup);
-    #endif
+
     int clk = -1;
     //Create shared memory for one integer variable 4 bytes
     key_t key = ftok("key.txt" ,67);
     shmid = shmget(key, 4, IPC_CREAT | 0644);
+    printf("\nin clk, shared memory of clk id: %d\n", shmid);
     if ((long)shmid == -1)
     {
         perror("Error in creating shm!");

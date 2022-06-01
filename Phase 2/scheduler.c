@@ -10,28 +10,40 @@
 #include <stdlib.h>
 #include <math.h>
 
+/* Memory Management Segment */
+int memory_size = 1024;
 
-/*************************************** Log Files ****************************************/
-FILE *logFile, *perfFile, *memorylogFile, *DUMP;
-/*******************************************************************************************/
+/* Free Lists */
+LinkedList *memory[9];
+LinkedList *_1B_segments;
+LinkedList *_2B_segments;
+LinkedList *_4B_segments;
+LinkedList *_8B_segments;
+LinkedList *_16B_segments;
+LinkedList *_32B_segments;
+LinkedList *_64B_segments;
+LinkedList *_128B_segments;
+LinkedList *_256B_segments;
+/*****/
 
-
-/***************************** Scheduling Queues and Tables ********************************/
+FILE *logFile, *perfFile, *memorylogFile;
+FILE *DUMP;
+int algorithm;
+int algo;
 PriorityQueue readyQ;
 PriorityQueue waitingQ;
 Process *Process_Table;
-/*******************************************************************************************/
-
-
-/************************************ CPU Management **************************************/
 Process *running = NULL;
 Process idleProcess;
-
+int shmid;
 int remainingtime;
 int *shmRemainingtime;
 int current_process_id;
 int total_number_of_received_process;
 int total_number_of_processes;
+int RR_Priority;
+bool if_termination;
+int total_CPU_idle_time;
 int number_of_terminated_processes;
 
 float CPU_utilization;
@@ -41,25 +53,15 @@ float Std_WTA;
 float total_Waiting;
 float total_WTA;
 float *WTA;
-/*******************************************************************************************/
 
-/************************************ Scheduling Flags *************************************/
 bool ifReceived = false;
 bool process_generator_finished = false;
-/*******************************************************************************************/
 
-/************************************ DUMY Variables **************************************/
-int algorithm;
-int algo;
 int clk;
-int i, Q;
-int total_CPU_idle_time;
-int RR_Priority;
-/*******************************************************************************************/
 
-/****************************************** Keys *****************************************/
-key_t key_id;
-int shmid;
+int sem;
+
+int i, Q;
 
 key_t key1;
 int shmid1;
@@ -73,68 +75,53 @@ int shmid3;
 key_t key4;
 int shmid4;
 
-key_t key;
 int msg_id;
 MsgBuf msgbuf;
-/*******************************************************************************************/
 
-/************************************ Scheduling Algorithms *********************************/
+key_t key_id;
+key_t key;
+
 void RR(int quantum);
 void HPF(void);
 void SRTN(void);
-/*******************************************************************************************/
 
-/***************************************** Utilities ***************************************/
+void down(int sem);
+void up(int sem);
+
 void updateInformation();
-/*******************************************************************************************/
 
-/************************************ Signal Handlers **************************************/
 void handler_notify_scheduler_new_process_has_arrived(int signum);
-void ProcessTerminates(int signum);
-/*******************************************************************************************/
 
-/************************************ Logging Functions ************************************/
+void ProcessTerminates(int signum);
+void interrupt_handler(int signum);
+
 void write_in_logfile_start();
 void write_in_logfile_stopped();
 void write_in_logfile_resume();
 void write_in_logfile_finished();
 void write_in_perffile();
-/*******************************************************************************************/
 
-/*************************************** Free Lists ****************************************/
-// Memory Management Segment
-int memory_size = 1024;
-
-LinkedList *memory[9];
-LinkedList *_1B_segments;
-LinkedList *_2B_segments;
-LinkedList *_4B_segments;
-LinkedList *_8B_segments;
-LinkedList *_16B_segments;
-LinkedList *_32B_segments;
-LinkedList *_64B_segments;
-LinkedList *_128B_segments;
-LinkedList *_256B_segments;
-/*******************************************************************************************/
-
-/************************************ Memory Management ************************************/
 bool mergeSegments(int id_of_category, int index);
 bool memoryInitialize();
 bool memoryAllocate(Process *process);
 bool memoryDeallocate(Segment *process);
 bool memoryManage(bool isAllocating, Process *process);
 void memoryDump(bool isAllocating, Process *process, int size, bool isMergingHappened);
-/*******************************************************************************************/
+
+int total_CPU_idle_time;
+int sem1;
+int FINISH;
 
 int main(int argc, char *argv[])
 {
-    total_CPU_idle_time = 0;
+
+    FINISH = 0;
     memoryInitialize();
 
     initClk();
     waitingQ.num_of_nodes = 0;
-    total_CPU_idle_time = 0;
     signal(SIGCHLD, SIG_IGN);
+    signal(SIGINT, interrupt_handler);
 
     total_number_of_processes = 0;
     total_CPU_idle_time = 0;
@@ -158,7 +145,7 @@ int main(int argc, char *argv[])
     number_of_terminated_processes = 0;
     WTA = malloc(sizeof(float) * total_number_of_processes);
 
-    // The remainging time of the current running process
+    // the remainging time of the current running process
     key_id = ftok("key.txt", 65);
     shmid = shmget(key_id, sizeof(int), IPC_CREAT | 0666);
     if (shmid == -1)
@@ -168,38 +155,44 @@ int main(int argc, char *argv[])
     }
     shmRemainingtime = (int *)shmat(shmid, (void *)0, 0);
     if (*shmRemainingtime == -1)
+    {
         perror("Error in attach in scheduler --------------");
+        exit(-1);
+    }
 
     /* Create a message buffer between process_generator and scheduler */
     key = ftok("key.txt", 66);
     msg_id = msgget(key, (IPC_CREAT | 0666));
 
     if (msg_id == -1)
+    {
         perror("Error in create!");
+        exit(1);
+    }
 
     total_number_of_received_process = 0;
     current_process_id = 0;
 
+   
     if (argc < 3)
     {
-        perror("Too few Arguments!!");
+        perror("Too few CLA!!");
         return -1;
     }
 
     algorithm = (argv[2][0] - '0') - 1;
-
     if (algorithm == 2)
     {
         if (argc < 4)
         {
-            perror("Too few Arguments!!");
+            perror("Too few CLA!!");
             return -1;
         }
         i = 0;
-        Q = 0;
-        while (argv[3][i])
-            Q = Q * 10 + (argv[3][i++] - '0');
+        Q = atoi(argv[3]);
+       
     }
+    printf("\nQ at beginning: %d\n", Q);
     algo = algorithm;
 
     logFile = fopen("Scheduler.log", "w");
@@ -213,9 +206,7 @@ int main(int argc, char *argv[])
 
     RR_Priority = 0;
 
-    // to guarantee that once the first process arrives it will begin at once not at the next sec
     while (pq_isEmpty(&readyQ));
-
     if (algo == 2)
         RR(Q);
 
@@ -226,130 +217,148 @@ int main(int argc, char *argv[])
         SRTN();
 
     // TODO implement the scheduler :)
-    // Upon termination release the clock resources.
+    // upon termination release the clock resources.
 
     fclose(logFile);
     fclose(DUMP);
     write_in_perffile();
+    shmctl(shmid, IPC_RMID, NULL);
     destroyClk(true);
+    // return 0;
 }
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// From the parent we will run each scheduler each clock cycle
+// from the parent we will run each scheduler each clock cycle
+
 void RR(int quantum)
 {
+
     int pid, pr;
     int clk = getClk();
-    
     int currentQuantum = quantum;
     int remain_beg;
     bool was_empty = false;
-    
-    while (total_number_of_processes)
+    while(total_number_of_processes || !pq_isEmpty(&readyQ))
     {
-        printf("RR is WORKING now!\n");
-        fflush(0);
-        if (running)
+        printf("\ntotal_number_of_processes: %d\n", total_number_of_processes);
+        if(running && *shmRemainingtime == 0 )
+                continue;
+        if(running)
         {
-            current_process_id = running->id;
 
-            if (running->remainingTime > 0)
+
+            current_process_id = running->id;
+            
+            
+
+            if(running->remainingTime > 0)
             {
                 running->remainingTime--;
                 *shmRemainingtime = running->remainingTime;
             }
 
-            if (running->remainingTime == 0)
+            if(running->remainingTime == 0 )
                 continue;
 
             currentQuantum--;
-
+            
+            
             running->cumulativeRunningTime++;
 
-            // To avoid stopping the process after ending the quantum if it is the only process in the system
-            if (currentQuantum == 0 && pq_isEmpty(&readyQ))
-                currentQuantum = quantum; // +1 as it will continue without loop on the clock to change
-
-            else if (currentQuantum == 0)
+            //to avoid stopping the process after ending the quantum if it is the only process in the system
+            if(currentQuantum == 0 && pq_isEmpty(&readyQ))
             {
+                
+                currentQuantum = quantum ; //+1 as it will continue without loop on the clock to change
+            
+            }
+            
+            
+            else if(currentQuantum == 0)
+            {
+                
                 running->state = WAITING;
 
-                // Send signal stop to this process and insert it back in the ready queue
+                //send signal stop to this process and insert it back in the ready queue
                 running->waiting_start_time = getClk();
 
                 kill(running->pid, SIGSTOP);
 
+  
                 RR_Priority++;
                 pq_push(&readyQ, running, RR_Priority);
 
-                write_in_logfile_stopped();
+                //termination occur ??
 
+                write_in_logfile_stopped();
+                
                 running = NULL;
-                // To make the next process begin exactly after the current is stopped
-                continue;
+
+                continue;  //to make the next process begin exactly after the current is stopped
             }
         }
-        else
-        {
-            if (!pq_isEmpty(&readyQ))
+        else{
+            
+            if(!pq_isEmpty(&readyQ))
             {
+                
                 running = pq_pop(&readyQ);
                 current_process_id = running->id;
-
+                
                 currentQuantum = quantum;
-
-                if (running->state == READY)
+                if(running->state == READY)
                 {
-                    // Meaning that it is the first time to be fun on the cpu
-                    // Inintialize the remaining time
+                    //meaning that it is the first time to be fun on the cpu
+                    //inintialize the remaining time
                     *shmRemainingtime = running->burstTime;
                     running->waitingTime = getClk() - running->arrivalTime;
                     pid = fork();
-                    if (pid == -1)
-                        perror("Error in fork!!");
-                    if (pid == 0)
+                    if(pid == -1) perror("Error in fork!!");
+                    if(pid == 0)
                     {
-                        pr = execl("./process.out", "process.out", (char *)NULL);
-                        if (pr == -1)
+                        pr = execl("./process.out", "process.out", (char*) NULL);
+                        if(pr == -1)
                         {
                             perror("Error in the process fork!\n");
                             exit(0);
                         }
                     }
-                    // Put it in the Process
+                    //put it in the Process
                     running->pid = pid;
                     running->state = RUNNING;
                     running->running_start_time = getClk();
-
+                    
                     remain_beg = running->burstTime;
-
                     write_in_logfile_start();
                 }
-                else
-                {
-                    // wake it up
+                else{
+                    //wake it up
+                    printf("---------------------old remaining : %d\n", *shmRemainingtime);
                     remain_beg = running->remainingTime;
                     *shmRemainingtime = running->remainingTime;
-                    kill(running->pid, SIGCONT);
-                    
+                    kill(running->pid, SIGCONT); //TO ASK
+                    printf("---------------------new remaining : %d\n", *shmRemainingtime);
                     running->remainingTime == *shmRemainingtime;
                     running->state = RUNNING;
                     running->running_start_time = getClk();
-
                     write_in_logfile_resume();
                 }
             }
-            else
-                total_CPU_idle_time++;
+            
         }
 
+        
         updateInformation();
-
-        while (clk == getClk()); // && !pq_isEmpty(&readyQ) && running
-        // {
-        //     if(!pq_isEmpty(&readyQ) && was_empty)
-        //         break;
-        // }
+        printf("\nclk = %d   getclk = %d\n", clk, getClk());
+        int preClk = clk;
+        while (clk == getClk() && running);
+     
         clk = getClk();
+
+        
+
+
     }
 }
 
@@ -366,10 +375,13 @@ void HPF(void)
     {
         printf("HPF is WORKING now!\n");
         fflush(0);
+        if(running && *shmRemainingtime == 0 )
+                continue;
         if (running)
         {
             ifUpdated = false;
             current_process_id = running->id;
+
 
             if (running->remainingTime > 0)
             {
@@ -377,6 +389,9 @@ void HPF(void)
                 *shmRemainingtime = running->remainingTime;
                 running->cumulativeRunningTime++;
             }
+
+            if(running->remainingTime == 0 )
+                continue;
         }
         else if (!pq_isEmpty(&readyQ))
         {
@@ -385,6 +400,7 @@ void HPF(void)
             running = pq_pop(&readyQ);
             current_process_id = running->id;
 
+            
             if (running->state == READY)
             {
                 *shmRemainingtime = running->burstTime;
@@ -408,11 +424,9 @@ void HPF(void)
                 write_in_logfile_start();
             }
         }
-        else
-            total_CPU_idle_time++;
 
         bool cont = false;
-        while (clk == getClk())
+        while (clk == getClk() && running)
         {
             if (running && running->remainingTime == 0)
             {
@@ -427,22 +441,23 @@ void HPF(void)
     }
 }
 
-
 void SRTN(void)
 {
+
     fflush(0);
     int clk = getClk();
     int peek;
     int pid, pr;
     while (total_number_of_processes)
     {
-        printf("SRTN is WORKING now!\n");
-        fflush(0);
-        if (running && running->remainingTime == 0)
+        if (running && *shmRemainingtime == 0)
             continue;
 
         if (ifReceived)
+        {
+            printf("\ni am here at line 502  --> false ifReceived\n");
             ifReceived = false;
+        }
 
         if (running)
         {
@@ -452,8 +467,9 @@ void SRTN(void)
 
                 if (peek < running->remainingTime)
                 {
-                    running->state = WAITING;
+                    // switch:
 
+                    running->state = WAITING;
                     // send signal stop to this process and insert it back in the ready queue
                     running->waiting_start_time = getClk();
                     kill(running->pid, SIGSTOP);
@@ -514,22 +530,33 @@ void SRTN(void)
         }
         while (clk == getClk())
             if (ifReceived)
+            {
+                printf("\ni am here at line 578  --> break ifReceived\n");
                 break;
+            }
+    
+        clk = getClk();
         if (ifReceived)
+        {
+            printf("\ni am here at line 583  --> ifReceived\n");
+            
             continue;
+        }
+        
         if (running && running->remainingTime > 0)
         {
             running->cumulativeRunningTime++;
             running->remainingTime--;
             *shmRemainingtime = running->remainingTime;
+            printf("\nat time: %d, decrementing running time of process: %d, becomes: %d\n", clk, running->id, running->remainingTime);
         }
-        if (!running && pq_isEmpty(&readyQ))
-            total_CPU_idle_time++;
-        clk = getClk();
+        
     }
 }
+
 void updateInformation()
 {
+
     /* Update information for the waiting processes */
     for (int i = 1; i <= total_number_of_received_process; i++)
     {
@@ -540,59 +567,72 @@ void updateInformation()
     }
 }
 
-
+// write_in_logfile
 void write_in_logfile_start()
 {
+    
     fprintf(logFile, "At  time  %i  process  %i  started  arr  %i  total  %i  remain  %i  wait  %i\n",
             (*running).running_start_time,
             (*running).id,
             (*running).arrivalTime,
-            (*running).burstTime,
+            (*running).burstTime, // to make sure ?!
             (*running).remainingTime,
             (*running).waitingTime // we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
     );
     fflush(0);
+    if(FINISH != -1)
+    {
+        total_CPU_idle_time += (*running).running_start_time - FINISH;
+        printf("\ntotal_cpu_idle_time: %d\n", total_CPU_idle_time);
+    }
 }
 
 void write_in_logfile_resume()
 {
+  
+    
     fprintf(logFile, "At  time  %i  process  %i  resumed  arr  %i  total  %i  remain  %i  wait  %i\n",
             running->running_start_time,
             running->id,
             running->arrivalTime,
-            running->burstTime,
+            running->burstTime, // to make sure ?!
             running->remainingTime,
             running->waitingTime);
     fflush(0);
+    FINISH = -1;
 }
 
 void write_in_logfile_stopped()
 {
+    
+    
     fprintf(logFile, "At  time  %i  process  %i  stopped  arr  %i  total  %i  remain  %i  wait  %i\n",
             running->waiting_start_time,
             running->id,
             running->arrivalTime,
-            running->burstTime,
+            running->burstTime, // to make sure ?!
             running->remainingTime,
             running->waitingTime // we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
     );
     fflush(0);
+    FINISH = -1;
 }
 
 void write_in_logfile_finished()
 {
     int clk = getClk();
 
+    FINISH = clk;
     fprintf(logFile, "At  time  %i  process  %i  finished  arr  %i  total  %i  remain  %i  wait  %i  TA  %i  WTA  %.2f\n",
             clk,
             running->id,
             running->arrivalTime,
-            running->burstTime,
+            running->burstTime, // to make sure ?!
             running->remainingTime,
             running->waitingTime, // we are sure that this variable --> no 2 processes will write on it at the same time as the update info func update it for only the wainting (not running) processes
 
             clk - running->arrivalTime,                              // finish - arrival
-            (float)(clk - running->arrivalTime) / running->burstTime
+            (float)(clk - running->arrivalTime) / running->burstTime // to ask (float)
     );
     fflush(0);
     WTA[number_of_terminated_processes] = (float)(clk - running->arrivalTime) / running->burstTime;
@@ -603,10 +643,10 @@ void write_in_logfile_finished()
 
 void write_in_perffile()
 {
-    total_CPU_idle_time--;
 
     perfFile = fopen("Scheduler.perf", "w");
-    CPU_utilization = (1 - ((float)total_CPU_idle_time / getClk())) * 100.0;
+    printf("\nGETCLK IS NOW ------------------------------ = %d\n", getClk());
+    CPU_utilization = (1 - ((float)total_CPU_idle_time / (getClk()))) * 100.0;
     fprintf(perfFile, "CPU utilization = %.2f%%\n", CPU_utilization);
     Avg_WTA = total_WTA / total_number_of_received_process;
     fprintf(perfFile, "Avg WTA = %.2f\n", Avg_WTA);
@@ -624,32 +664,42 @@ void write_in_perffile()
     return;
 }
 
+// handler_notify_scheduler_I_terminated
 void ProcessTerminates(int signum)
 { 
     printf("Process Terminate handler is started!\n");
     fflush(0);
-    // Implement what the scheduler should do when it gets notifies that a process is finished
+    // TODO
+    // implement what the scheduler should do when it gets notifies that a process is finished
     bool isMerged = memoryManage(false, &Process_Table[current_process_id]);
 
     running->remainingTime = *shmRemainingtime;
     write_in_logfile_finished();
-    // Scheduler should delete its data from the process table
+    // scheduler should delete its data from the process table
     Process_Table[current_process_id] = idleProcess;
-    // Free(Process_Table + running->id);
-    // Call the function Terminate_Process
+    
+    // call the function Terminate_Process
     running = NULL;
     total_number_of_processes--;
-    // Should we check on the total number of processes and if it equals 0 then terminate the scheduler
+    // to ask
+    // should we check on the total number of processes and if it equals 0 then terminate the scheduler
 
+    
+    if_termination = true;
+
+   
     Process *process;
     bool canBeAllocated = false;
 
     PriorityQueue tempQ;
     tempQ.num_of_nodes = 0;
-
+    printf("Debugging at Line 750: WaitingQ Size: %d\n", waitingQ.num_of_nodes);
+    fflush(0);
     while (waitingQ.num_of_nodes > 0)
     {
         process = pq_pop(&waitingQ);
+        printf("Debugging at Line 750: POPING - WaitingQ Size: %d\n", waitingQ.num_of_nodes);
+        fflush(0);
         canBeAllocated = memoryManage(true, process);
         if (canBeAllocated)
         {
@@ -669,10 +719,12 @@ void ProcessTerminates(int signum)
             if (algo == 0)
                 pq_push(&readyQ, &Process_Table[process->id], Process_Table[process->id].priority);
             else if (algo == 1)
-                /* WARNING: This needs change depends on the SRTN algorithm */
+            { /* WARNING: This needs change depends on the SRTN algorithm */
                 pq_push(&readyQ, &Process_Table[process->id], Process_Table[process->id].remainingTime);
+            }
             else if (algo == 2)
             {
+                
                 RR_Priority++;
                 pq_push(&readyQ, &Process_Table[process->id], RR_Priority);
             }
@@ -704,12 +756,16 @@ void ProcessTerminates(int signum)
         else if (algo == 2)
             pq_push(&waitingQ, process, getClk());
     }
-
+    printf("Process Terminate handler is finished Successfully! ReadyQ Size: %d, WaitingQ Size: %d, TempQ Size: %d\n", readyQ.num_of_nodes, waitingQ.num_of_nodes, tempQ.num_of_nodes);
+    fflush(0);
     signal(SIGUSR2, ProcessTerminates);
 }
 
 void handler_notify_scheduler_new_process_has_arrived(int signum)
 {
+    printf("Notification handler is started!\n");
+    fflush(0);
+
     int receiveValue;
     int rc;
     struct msqid_ds buf;
@@ -765,8 +821,9 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
                     pq_push(&readyQ, &Process_Table[temp_process->id], Process_Table[temp_process->id].priority);
                 }
                 else if (algo == 1)
-                    /* WARNING: This needs change depends on the SRTN algorithm */
+                { /* WARNING: This needs change depends on the SRTN algorithm */
                     pq_push(&readyQ, &Process_Table[temp_process->id], Process_Table[temp_process->id].remainingTime);
+                }
                 else if (algo == 2)
                 {
                     // printf("i am pushing here \n");
@@ -779,17 +836,24 @@ void handler_notify_scheduler_new_process_has_arrived(int signum)
                 if (algo == 0)
                     pq_push(&waitingQ, temp_process, (*temp_process).priority);
                 else if (algo == 1)
-                    /* WARNING: This needs change depends on the SRTN algorithm */
+                { /* WARNING: This needs change depends on the SRTN algorithm */
                     pq_push(&waitingQ, temp_process, (*temp_process).remainingTime);
+                }
                 else if (algo == 2)
+                {
                     pq_push(&waitingQ, temp_process, getClk());
+                }
             }
+
 
             /* Parent is systemd, which means the process_generator is died! */
             if (getppid() == 1)
                 process_generator_finished = true;
         }
     }
+
+    printf("Notification handler is finished successfully!\n");
+    fflush(0);
     signal(SIGUSR1, handler_notify_scheduler_new_process_has_arrived);
 }
 
@@ -800,6 +864,8 @@ bool memoryManage(bool isAllocating, Process *process)
     int size;
     if (isAllocating)
     {
+        
+
         check = memoryAllocate(process);
         if (check)
             size = process->segment->size;
@@ -847,26 +913,26 @@ bool memoryInitialize()
 
     Segment *segment_4 = (Segment *)malloc(sizeof(Segment));
     segment_4->size = 256;
-    segment_4->start_address = 768;
-    segment_4->end_address = 1023;
+    segment_4->start_address = 768; // 768
+    segment_4->end_address = 1023;  // 1023
     ll_Node *_256B_segment_4 = ll_newNode(segment_4, nullptr);
 
     Segment *segment_3 = (Segment *)malloc(sizeof(Segment));
     segment_3->size = 256;
-    segment_3->start_address = 512;
-    segment_3->end_address = 767;
-    ll_Node *_256B_segment_3 = ll_newNode(segment_3, _256B_segment_4);
+    segment_3->start_address = 512;                                    // 512
+    segment_3->end_address = 767;                                      // 767
+    ll_Node *_256B_segment_3 = ll_newNode(segment_3, _256B_segment_4); // changed
 
     Segment *segment_2 = (Segment *)malloc(sizeof(Segment));
     segment_2->size = 256;
-    segment_2->start_address = 256;
-    segment_2->end_address = 511;
+    segment_2->start_address = 256; // 256
+    segment_2->end_address = 511;   // 511
     ll_Node *_256B_segment_2 = ll_newNode(segment_2, _256B_segment_3);
 
     Segment *segment_1 = (Segment *)malloc(sizeof(Segment));
     segment_1->size = 256;
-    segment_1->start_address = 0;
-    segment_1->end_address = 255;
+    segment_1->start_address = 0; // 0
+    segment_1->end_address = 255; // 255
     ll_Node *_256B_segment_1 = ll_newNode(segment_1, _256B_segment_2);
 
     _256B_segments->num_of_nodes += 4;
@@ -890,6 +956,19 @@ void segmentation(int id_of_category, int target_of_category, Process *process)
         return;
     }
 
+    /*
+    * Recursion Trace Tree
+    [8] 256 -> 3
+    [7] 128 -> 1
+    [6] 64  -> 1
+    [5] 32  -> 1
+    [4] 16  -> 1
+    [3] 8   -> 1
+    [2] 4   -> 1
+    [1] 2   -> 1
+    [0] 1   -> 1
+    */
+
     ll_Node *old_segment = memory[id_of_category]->Head;
     ll_Node *next_segment = old_segment->next;
     Segment *segment_1 = (Segment *)malloc(sizeof(Segment));
@@ -900,7 +979,9 @@ void segmentation(int id_of_category, int target_of_category, Process *process)
 
     /* Case there are some nodes in the list */
     if (memory[id_of_category - 1]->Head != nullptr)
-        new_segment_1 = ll_newNode(segment_1, memory[id_of_category - 1]->Head);
+    {
+        new_segment_1 = ll_newNode(segment_1, memory[id_of_category - 1]->Head); // changed ->data menna
+    }
     /* Case there are no nodes in the list */
     else
     {
@@ -912,7 +993,7 @@ void segmentation(int id_of_category, int target_of_category, Process *process)
     segment_2->size = segment_1->size;
     segment_2->start_address = old_segment->data->start_address;
     segment_2->end_address = segment_1->start_address - 1;
-    ll_Node *new_segment_2 = ll_newNode(segment_2, memory[id_of_category - 1]->Head);
+    ll_Node *new_segment_2 = ll_newNode(segment_2, memory[id_of_category - 1]->Head); // changed ->data menna
     memory[id_of_category - 1]->Head = new_segment_2;
 
     free(old_segment->data);
@@ -958,11 +1039,16 @@ bool memoryAllocate(Process *process)
 }
 
 
+
 bool mergeSegments(int id_of_category, int index)
 {
+    printf("<MERGING> - id_of_category: %d\n", id_of_category);
+    fflush(0);
     // Base Case
     if (id_of_category == 8)
     {
+        printf("<FINISH MERGING> - id_of_category: %d\n", id_of_category);
+        fflush(0);
         if (index == 0)
             return false;
 
@@ -1147,6 +1233,18 @@ bool mergeSegments(int id_of_category, int index)
 
 bool memoryDeallocate(Segment *segment)
 {
+    // 25 B -> starting address = 64, Ending Address = 95
+    //  I will search for a 32B-segment starting with 96 or ending with 63 (left or right)
+    // 96 / 32 = 3 % 2 = 1 -> [Odd]
+    // (63+1) / 32 = 2 % 2 = 0 -> Even
+    // 128
+    // Size:    *32 *16  [16]  *16 16 *32
+    // Starting: 0   32  [48]   64 80  96
+    // Ending:   31  47  [63]   79 95  127
+    // Parity:   E   E   [O]    E  O   O
+    // If Even -> Merge with right
+    // If Odd -> Merge with left
+
     int id_of_category = ceil(log(segment->size) / log(2));
 
     ll_Node *walker = memory[id_of_category]->Head;
@@ -1193,6 +1291,7 @@ bool memoryDeallocate(Segment *segment)
         previous->next = newNode;
     }
 
+    // [previousPrevious] -> [previous] -> [newNode] -> [walker]
     memory[id_of_category]->num_of_nodes += 1;
 
     // Can't merge 256B-Segments
@@ -1224,7 +1323,8 @@ void memoryDump(bool isAllocating, Process *process, int size, bool isMergingHap
             fflush(0);
         }
     }
-
+    fprintf(DUMP, "Total Number of Processes = %d\n", total_number_of_processes);
+    fflush(0);
     fprintf(DUMP, "Ready Queue Size = %d\n", readyQ.num_of_nodes);
     fflush(0);
     fprintf(DUMP, "Waiting Queue Size = %d\n", waitingQ.num_of_nodes);
@@ -1270,3 +1370,21 @@ void memoryDump(bool isAllocating, Process *process, int size, bool isMergingHap
     fprintf(DUMP, "[NULL]\n");
     fprintf(DUMP, "##############################################################################################\n");
 }
+
+
+void interrupt_handler(int signum)
+{
+    shmctl(shmid, IPC_RMID, NULL);
+    destroyClk(false);
+}
+
+// deallocate is called during termination
+// get the size of the segment  --> to know the category
+// traverse to find the tween
+// if found --> merge  --> and find the right location in the new category
+// if not found --> insert in the right location
+//
+
+// merge
+// recersively ---> from the current category to the largest category 256
+// once we become unable to merge any more -----> then
